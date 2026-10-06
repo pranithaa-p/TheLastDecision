@@ -1,973 +1,3427 @@
 /**
- * THE LAST DECISION — CHENNAI 2047 // THIRUKKURAL 461
- * An interactive story & playable browser game exploring ancient wisdom.
- * Vanilla JavaScript • Zero dependencies.
+ * THE LAST DECISION — CHENNAI 2047
+ * THIRUKKURAL 461
+ *
+ * Interactive Tamil story game
+ * Vanilla JavaScript — zero dependencies
  */
 
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
-  // ==========================================================================
-  // 1. CENTRAL GAME STATE
-  // ==========================================================================
-  const gameState = {
-    scene: "INTRO", // INTRO, CITY, DIALOGUE, DEVICE, EXPLORE, ALLOCATION, ENDING
+  // ============================================================
+  // 1. GAME STATE
+  // ============================================================
+
+  const GS = {
+    scene: "INTRO",
+
     player: {
       x: 460,
-      y: 270,
-      speed: 4.2,
-      isMoving: false
+      y: 265,
+      speed: 4.4
     },
+
+    scenic: {
+      x: 0,
+      y: 0,
+      speed: 4.8
+    },
+
     keys: {
       up: false,
       down: false,
       left: false,
       right: false
     },
-    bounds: {
-      minX: 50,
-      maxX: 950,
-      minY: 170,
-      maxY: 460
-    },
-    activeInteractable: null,
-    firstChoice: null, // "HOSPITAL" or "METRO"
-    blackoutTriggered: false,
-    dialogueCount: 0,
-    visited: {
-      teaShop: false,
-      student: false,
-      hospital: false,
-      powerStation: false
-    },
-    finalAllocation: {
-      hospital: 35,
-      grid: 35,
-      metro: 30
-    },
-    ending: null, // "SAVIOR", "SURVIVOR", "THINKER"
-    audioEnabled: true,
-    audioCtx: null,
 
-    // Dialogue playback
-    dialogueQueue: [],
-    dialogueIndex: 0,
-    isTyping: false,
-    typewriterTimer: null,
-    onDialogueEnd: null
+    cityBounds: {
+      minX: 52,
+      maxX: 940,
+      minY: 172,
+      maxY: 450
+    },
+
+    scenicBounds: {
+      minX: 45,
+      maxX: 900,
+      minY: 180,
+      maxY: 430
+    },
+
+    blackout: false,
+    firstChoice: null,
+
+    talkCount: 0,
+
+    visited: {
+      muthu: false,
+      karthik: false,
+      priya: false,
+      kavitha: false
+    },
+
+    post: {
+      priya: false,
+      karthik: false,
+      kavitha: false
+    },
+
+    finalAlloc: {
+      h: 35,
+      g: 35,
+      m: 30
+    },
+
+    ending: null,
+
+    relics: {
+      leaf: false,
+      light: false,
+      tree: false,
+      horizon: false
+    },
+
+    activeNPC: null,
+    activeRelic: null,
+
+    // Dialogue
+    dlgQueue: [],
+    dlgIdx: 0,
+    dlgTyping: false,
+    dlgTimer: null,
+    dlgOnEnd: null,
+    dlgScene: "city",
+
+    // Audio
+    audioOn: true,
+    ctx: null
   };
 
-  // ==========================================================================
-  // 2. PROCEDURAL SOUND SYNTHESIZER (Web Audio API, Zero External Assets)
-  // ==========================================================================
+
+  // ============================================================
+  // 2. AUDIO
+  // ============================================================
+
   function initAudio() {
-    if (!gameState.audioCtx) {
-      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtxClass) {
-        gameState.audioCtx = new AudioCtxClass();
+    if (!GS.ctx) {
+      const AudioCtx =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if (AudioCtx) {
+        GS.ctx = new AudioCtx();
       }
     }
-    if (gameState.audioCtx && gameState.audioCtx.state === "suspended") {
-      gameState.audioCtx.resume();
+
+    if (
+      GS.ctx &&
+      GS.ctx.state === "suspended"
+    ) {
+      GS.ctx.resume();
     }
   }
 
-  function playTone(freq, type = "sine", duration = 0.08, vol = 0.05) {
-    if (!gameState.audioEnabled) return;
+
+  function tone(
+    freq,
+    type = "sine",
+    dur = 0.09,
+    vol = 0.05
+  ) {
+    if (!GS.audioOn) return;
+
     try {
       initAudio();
-      if (!gameState.audioCtx) return;
 
-      const osc = gameState.audioCtx.createOscillator();
-      const gain = gameState.audioCtx.createGain();
+      if (!GS.ctx) return;
+
+      const osc = GS.ctx.createOscillator();
+      const gain = GS.ctx.createGain();
 
       osc.type = type;
-      osc.frequency.setValueAtTime(freq, gameState.audioCtx.currentTime);
 
-      gain.gain.setValueAtTime(vol, gameState.audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, gameState.audioCtx.currentTime + duration);
+      osc.frequency.setValueAtTime(
+        freq,
+        GS.ctx.currentTime
+      );
+
+      gain.gain.setValueAtTime(
+        vol,
+        GS.ctx.currentTime
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        GS.ctx.currentTime + dur
+      );
 
       osc.connect(gain);
-      gain.connect(gameState.audioCtx.destination);
+      gain.connect(GS.ctx.destination);
 
       osc.start();
-      osc.stop(gameState.audioCtx.currentTime + duration);
-    } catch {
-      // Audio fallback without interrupting game
+      osc.stop(
+        GS.ctx.currentTime + dur
+      );
+    } catch (err) {
+      // Audio is optional.
     }
   }
+
 
   const sfx = {
-    step: () => playTone(140, "sine", 0.04, 0.02),
-    blip: () => playTone(780, "triangle", 0.03, 0.025),
+
+    step: () =>
+      tone(140, "sine", 0.04, 0.018),
+
+    blip: () =>
+      tone(780, "triangle", 0.03, 0.022),
+
     interact: () => {
-      playTone(520, "sine", 0.08, 0.05);
-      setTimeout(() => playTone(780, "sine", 0.1, 0.05), 60);
+      tone(520, "sine", 0.08, 0.045);
+
+      setTimeout(() => {
+        tone(780, "sine", 0.1, 0.045);
+      }, 60);
     },
+
+    relic: () => {
+      tone(587, "sine", 0.12, 0.06);
+
+      setTimeout(() => {
+        tone(880, "sine", 0.18, 0.07);
+      }, 90);
+    },
+
     blackout: () => {
-      playTone(180, "sawtooth", 0.35, 0.08);
-      setTimeout(() => playTone(90, "sawtooth", 0.5, 0.1), 120);
+      tone(180, "sawtooth", 0.35, 0.08);
+
+      setTimeout(() => {
+        tone(90, "sawtooth", 0.5, 0.1);
+      }, 120);
     },
+
     choice: () => {
-      playTone(440, "triangle", 0.12, 0.06);
-      setTimeout(() => playTone(660, "triangle", 0.16, 0.06), 80);
+      tone(440, "triangle", 0.12, 0.06);
+
+      setTimeout(() => {
+        tone(660, "triangle", 0.16, 0.06);
+      }, 80);
     },
-    success: () => {
-      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
-        setTimeout(() => playTone(freq, "sine", 0.22, 0.06), idx * 110);
-      });
+
+    triumph: () => {
+      [
+        523.25,
+        659.25,
+        783.99,
+        1046.5
+      ].forEach((freq, index) => {
+        setTimeout(() => {
+          tone(freq, "sine", 0.25, 0.07);
+        }, index * 110);
+      })
     }
   };
 
-  // ==========================================================================
-  // 3. DOM ELEMENT REFERENCES
-  // ==========================================================================
-  const els = {
-    soundToggle: document.getElementById("soundToggle"),
-    soundIcon: document.getElementById("soundIcon"),
-    soundText: document.getElementById("soundText"),
+
+  // ============================================================
+  // 3. ELEMENT REFERENCES
+  // ============================================================
+
+  const $ = id =>
+    document.getElementById(id);
+
+
+  const el = {
+
+    // Sound
+    soundToggle: $("soundToggle"),
+    soundIcon: $("soundIcon"),
+    soundText: $("soundText"),
 
     // Scenes
-    sceneIntro: document.getElementById("sceneIntro"),
-    sceneCity: document.getElementById("sceneCity"),
-    sceneEnding: document.getElementById("sceneEnding"),
+    sceneIntro: $("sceneIntro"),
+    sceneCity: $("sceneCity"),
+    sceneEnding: $("sceneEnding"),
 
     // Intro
-    btnStartGame: document.getElementById("btnStartGame"),
+    btnStartGame: $("btnStartGame"),
 
-    // City Elements
-    objectivePill: document.getElementById("objectivePill"),
-    objectiveText: document.getElementById("objectiveText"),
-    playerActor: document.getElementById("playerActor"),
-    contextBubble: document.getElementById("contextBubble"),
-    contextLabel: document.getElementById("contextLabel"),
-    worldBanner: document.getElementById("worldBanner"),
-    bannerIcon: document.getElementById("bannerIcon"),
-    bannerText: document.getElementById("bannerText"),
-    fallenDevice: document.getElementById("fallenDevice"),
+    // City HUD
+    objectiveText: $("objectiveText"),
+    worldBanner: $("worldBanner"),
+    bannerIcon: $("bannerIcon"),
+    bannerText: $("bannerText"),
 
-    // Buildings & Signals
-    metroStatusPill: document.getElementById("metroStatusPill"),
-    hospStatusPill: document.getElementById("hospStatusPill"),
-    powerStatusPill: document.getElementById("powerStatusPill"),
-    hospCross: document.getElementById("hospCross"),
-    hw1: document.getElementById("hw1"),
-    hw2: document.getElementById("hw2"),
-    hw3: document.getElementById("hw3"),
-    metroGateLight: document.getElementById("metroGateLight"),
+    // Player
+    playerActor: $("playerActor"),
 
-    // Lamps
-    pool1: document.getElementById("pool1"),
-    pool2: document.getElementById("pool2"),
-    pool3: document.getElementById("pool3"),
-    pool4: document.getElementById("pool4"),
+    // Context bubble
+    contextBubble: $("contextBubble"),
+    contextLabel: $("contextLabel"),
+
+    // Buildings
+    metroStatusPill: $("metroStatusPill"),
+    hospStatusPill: $("hospStatusPill"),
+    metroGateLight: $("metroGateLight"),
+    hospCross: $("hospCross"),
+
+    hw1: $("hw1"),
+    hw2: $("hw2"),
+    hw3: $("hw3"),
 
     // Cables
-    cableSubToMetro: document.getElementById("cableSubToMetro"),
-    cableSubToHosp: document.getElementById("cableSubToHosp"),
-    cableSubToTea: document.getElementById("cableSubToTea"),
+    cableSubToMetro: $("cableSubToMetro"),
+    cableSubToHosp: $("cableSubToHosp"),
 
-    // Dialogue Tray
-    dialogueTray: document.getElementById("dialogueTray"),
-    dialogueAvatar: document.getElementById("dialogueAvatar"),
-    dialogueName: document.getElementById("dialogueName"),
-    dialogueTitle: document.getElementById("dialogueTitle"),
-    dialogueContent: document.getElementById("dialogueContent"),
-    btnDialogueNext: document.getElementById("btnDialogueNext"),
+    // Pools
+    pool1: $("pool1"),
+    pool2: $("pool2"),
+    pool3: $("pool3"),
+    pool4: $("pool4"),
 
-    // Device Minigame Modal (Scene 2)
-    modalDevice: document.getElementById("modalDevice"),
-    btnChooseHosp: document.getElementById("btnChooseHosp"),
-    btnChooseMetro: document.getElementById("btnChooseMetro"),
+    // Fallen device
+    fallenDevice: $("fallenDevice"),
 
-    // Final Allocation Modal (Scene 5)
-    modalAllocation: document.getElementById("modalAllocation"),
-    allocTotalDisplay: document.getElementById("allocTotalDisplay"),
-    segHosp: document.getElementById("segHosp"),
-    segGrid: document.getElementById("segGrid"),
-    segMetro: document.getElementById("segMetro"),
-    sliderHosp: document.getElementById("sliderHosp"),
-    sliderGrid: document.getElementById("sliderGrid"),
-    sliderMetro: document.getElementById("sliderMetro"),
-    valHospDisplay: document.getElementById("valHospDisplay"),
-    valGridDisplay: document.getElementById("valGridDisplay"),
-    valMetroDisplay: document.getElementById("valMetroDisplay"),
-    noteHosp: document.getElementById("noteHosp"),
-    noteGrid: document.getElementById("noteGrid"),
-    noteMetro: document.getElementById("noteMetro"),
-    btnCommitAllocation: document.getElementById("btnCommitAllocation"),
+    // Celebration
+    celebRays: $("celebRays"),
 
-    // Ending Scene & Kural
-    verdictBanner: document.getElementById("verdictBanner"),
-    verdictCategory: document.getElementById("verdictCategory"),
-    verdictHeadline: document.getElementById("verdictHeadline"),
-    verdictNarr1: document.getElementById("verdictNarr1"),
-    verdictNarr2: document.getElementById("verdictNarr2"),
-    verdictHighlight: document.getElementById("verdictHighlight"),
-    recapGrid: document.getElementById("recapGrid"),
+    // City dialogue
+    dialogueTray: $("dialogueTray"),
+    dialogueAvatar: $("dialogueAvatar"),
+    dialogueName: $("dialogueName"),
+    dialogueTitle: $("dialogueTitle"),
+    dialogueContent: $("dialogueContent"),
+    btnDialogueNext: $("btnDialogueNext"),
 
-    kLine1: document.getElementById("kLine1"),
-    kLine2: document.getElementById("kLine2"),
-    kLine3: document.getElementById("kLine3"),
-    kLine4: document.getElementById("kLine4"),
-    btnReplay: document.getElementById("btnReplay"),
+    // Ending dialogue
+    dialogueTrayShared: $("dialogueTrayShared"),
+    dialogueAvatarS: $("dialogueAvatarS"),
+    dialogueNameS: $("dialogueNameS"),
+    dialogueTitleS: $("dialogueTitleS"),
+    dialogueContentS: $("dialogueContentS"),
+    btnDialogueNextS: $("btnDialogueNextS"),
 
-    // Mobile D-Pad
-    dpadUp: document.getElementById("dpadUp"),
-    dpadDown: document.getElementById("dpadDown"),
-    dpadLeft: document.getElementById("dpadLeft"),
-    dpadRight: document.getElementById("dpadRight"),
-    mobileInteractBtn: document.getElementById("mobileInteractBtn")
+    // Modals
+    modalDevice: $("modalDevice"),
+    btnChooseHosp: $("btnChooseHosp"),
+    btnChooseMetro: $("btnChooseMetro"),
+
+    modalAllocation: $("modalAllocation"),
+
+    allocTotalDisplay:
+      $("allocTotalDisplay"),
+
+    segHosp: $("segHosp"),
+    segGrid: $("segGrid"),
+    segMetro: $("segMetro"),
+
+    sliderHosp: $("sliderHosp"),
+    sliderGrid: $("sliderGrid"),
+    sliderMetro: $("sliderMetro"),
+
+    valHospDisplay:
+      $("valHospDisplay"),
+
+    valGridDisplay:
+      $("valGridDisplay"),
+
+    valMetroDisplay:
+      $("valMetroDisplay"),
+
+    noteHosp: $("noteHosp"),
+    noteGrid: $("noteGrid"),
+    noteMetro: $("noteMetro"),
+
+    btnCommitAllocation:
+      $("btnCommitAllocation"),
+
+    // Ending
+    scenicPlayer: $("scenicPlayer"),
+    cityPanorama: $("cityPanorama"),
+    scenicGoal: $("scenicGoal"),
+
+    relicBubble: $("relicBubble"),
+    relicLabel: $("relicLabel"),
+
+    relicLeaf: $("relicLeaf"),
+    tagLeaf: $("tagLeaf"),
+
+    relicLight: $("relicLight"),
+    tagLight: $("tagLight"),
+
+    relicTree: $("relicTree"),
+    tagTree: $("tagTree"),
+
+    relicHorizon: $("relicHorizon"),
+    tagHorizon: $("tagHorizon"),
+
+    kuralCelestial:
+      $("kuralCelestial"),
+
+    cWord1: $("cWord1"),
+    cWord2: $("cWord2"),
+
+    portalWalkCity:
+      $("portalWalkCity"),
+
+    portalReplayNode:
+      $("portalReplayNode"),
+
+    // Mobile city controls
+    dpadUp: $("dpadUp"),
+    dpadDown: $("dpadDown"),
+    dpadLeft: $("dpadLeft"),
+    dpadRight: $("dpadRight"),
+
+    mobileInteractBtn:
+      $("mobileInteractBtn"),
+
+    // Mobile ending controls
+    dpadUpE: $("dpadUpE"),
+    dpadDownE: $("dpadDownE"),
+    dpadLeftE: $("dpadLeftE"),
+    dpadRightE: $("dpadRightE"),
+
+    mobileInteractBtnE:
+      $("mobileInteractBtnE")
   };
 
-  // ==========================================================================
+
+  // ============================================================
   // 4. SCENE SWITCHING
-  // ==========================================================================
-  function switchScene(sceneName) {
-    gameState.scene = sceneName;
+  // ============================================================
 
-    els.sceneIntro.classList.remove("active");
-    els.sceneCity.classList.remove("active");
-    els.sceneEnding.classList.remove("active");
+  function switchScene(name) {
 
-    if (sceneName === "INTRO") {
-      els.sceneIntro.classList.add("active");
-    } else if (sceneName === "ENDING") {
-      els.sceneEnding.classList.add("active");
+    GS.scene = name;
+
+    if (el.sceneIntro) {
+      el.sceneIntro.classList.remove("active");
+    }
+
+    if (el.sceneCity) {
+      el.sceneCity.classList.remove("active");
+    }
+
+    if (el.sceneEnding) {
+      el.sceneEnding.classList.remove("active");
+    }
+
+    if (name === "INTRO") {
+
+      el.sceneIntro?.classList.add("active");
+
+    } else if (name === "OVERLOOK") {
+
+      el.sceneEnding?.classList.add("active");
+
     } else {
-      els.sceneCity.classList.add("active");
+
+      el.sceneCity?.classList.add("active");
     }
   }
 
-  // ==========================================================================
-  // 5. PLAYER MOVEMENT & GAME LOOP
-  // ==========================================================================
-  let lastFootstep = 0;
 
-  function updatePlayerMovement() {
+  // ============================================================
+  // 5. SCENIC COORDINATE SYSTEM
+  // ============================================================
+
+  /*
+   * IMPORTANT:
+   *
+   * The old code used:
+   *
+   *   window.innerWidth
+   *   window.innerHeight
+   *
+   * for relic positions.
+   *
+   * But the player is positioned inside #sceneEnding.
+   *
+   * If #sceneEnding is not exactly the viewport,
+   * the player and relics end up using different
+   * coordinate systems.
+   *
+   * We now use the actual ending scene dimensions.
+   */
+
+
+  function getEndingSize() {
+
+    if (!el.sceneEnding) {
+      return {
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
+    }
+
+    return {
+      width: el.sceneEnding.clientWidth,
+      height: el.sceneEnding.clientHeight
+    };
+  }
+
+
+  function updateScenicBounds() {
+
+    const {
+      width,
+      height
+    } = getEndingSize();
+
+    /*
+     * Keep the character away from the extreme edges.
+     */
+
+    GS.scenicBounds.minX = 45;
+
+    GS.scenicBounds.maxX =
+      Math.max(
+        GS.scenicBounds.minX,
+        width - 45
+      );
+
+    GS.scenicBounds.minY =
+      Math.max(
+        175,
+        height * 0.28
+      );
+
+    GS.scenicBounds.maxY =
+      Math.max(
+        GS.scenicBounds.minY,
+        height - 105
+      );
+  }
+
+
+  // ============================================================
+  // 6. MOVEMENT
+  // ============================================================
+
+  let lastStep = 0;
+  let isMoving = false;
+
+
+  function stopWalkingAnimation() {
+
+    if (!isMoving) return;
+
+    isMoving = false;
+
+    el.playerActor?.classList.remove(
+      "walking"
+    );
+
+    el.scenicPlayer?.classList.remove(
+      "walking"
+    );
+  }
+
+
+  function updateMovement() {
+
+    const blockedScenes = [
+      "INTRO",
+      "DIALOGUE",
+      "DEVICE",
+      "ALLOCATION"
+    ];
+
     if (
-      gameState.scene === "INTRO" ||
-      gameState.scene === "DIALOGUE" ||
-      gameState.scene === "DEVICE" ||
-      gameState.scene === "ALLOCATION" ||
-      gameState.scene === "ENDING"
+      blockedScenes.includes(
+        GS.scene
+      )
     ) {
+      stopWalkingAnimation();
       return;
     }
+
 
     let dx = 0;
     let dy = 0;
 
-    if (gameState.keys.up) dy -= 1;
-    if (gameState.keys.down) dy += 1;
-    if (gameState.keys.left) dx -= 1;
-    if (gameState.keys.right) dx += 1;
 
-    if (dx !== 0 && dy !== 0) {
-      dx *= 0.7071;
-      dy *= 0.7071;
+    if (GS.keys.up) {
+      dy -= 1;
     }
+
+    if (GS.keys.down) {
+      dy += 1;
+    }
+
+    if (GS.keys.left) {
+      dx -= 1;
+    }
+
+    if (GS.keys.right) {
+      dx += 1;
+    }
+
+
+    // Normalize diagonal movement.
+    if (dx !== 0 && dy !== 0) {
+      dx *= 0.707106;
+      dy *= 0.707106;
+    }
+
 
     if (dx !== 0 || dy !== 0) {
-      gameState.player.x += dx * gameState.player.speed;
-      gameState.player.y += dy * gameState.player.speed;
 
-      // Keep within walkable road bounds
-      gameState.player.x = Math.max(gameState.bounds.minX, Math.min(gameState.bounds.maxX, gameState.player.x));
-      gameState.player.y = Math.max(gameState.bounds.minY, Math.min(gameState.bounds.maxY, gameState.player.y));
+      // --------------------------------------------------------
+      // CITY
+      // --------------------------------------------------------
 
-      els.playerActor.style.left = `${gameState.player.x}px`;
-      els.playerActor.style.top = `${gameState.player.y}px`;
+      if (GS.scene === "CITY") {
 
-      const now = performance.now();
-      if (now - lastFootstep > 280) {
-        sfx.step();
-        lastFootstep = now;
+        GS.player.x =
+          Math.max(
+            GS.cityBounds.minX,
+            Math.min(
+              GS.cityBounds.maxX,
+              GS.player.x +
+                dx * GS.player.speed
+            )
+          );
+
+        GS.player.y =
+          Math.max(
+            GS.cityBounds.minY,
+            Math.min(
+              GS.cityBounds.maxY,
+              GS.player.y +
+                dy * GS.player.speed
+            )
+          );
+
+
+        if (el.playerActor) {
+
+          el.playerActor.style.left =
+            `${GS.player.x}px`;
+
+          el.playerActor.style.top =
+            `${GS.player.y}px`;
+        }
       }
+
+
+      // --------------------------------------------------------
+      // ENDING / OVERLOOK
+      // --------------------------------------------------------
+
+      else if (GS.scene === "OVERLOOK") {
+
+        updateScenicBounds();
+
+
+        GS.scenic.x =
+          Math.max(
+            GS.scenicBounds.minX,
+            Math.min(
+              GS.scenicBounds.maxX,
+              GS.scenic.x +
+                dx * GS.scenic.speed
+            )
+          );
+
+
+        GS.scenic.y =
+          Math.max(
+            GS.scenicBounds.minY,
+            Math.min(
+              GS.scenicBounds.maxY,
+              GS.scenic.y +
+                dy * GS.scenic.speed
+            )
+          );
+
+
+        if (el.scenicPlayer) {
+
+          el.scenicPlayer.style.left =
+            `${GS.scenic.x}px`;
+
+          el.scenicPlayer.style.top =
+            `${GS.scenic.y}px`;
+        }
+      }
+
+
+      // Footstep sound.
+      const now =
+        performance.now();
+
+      if (
+        now - lastStep > 275
+      ) {
+        sfx.step();
+        lastStep = now;
+      }
+
+
+      // Walking animation.
+      if (!isMoving) {
+
+        isMoving = true;
+
+        if (
+          GS.scene === "CITY"
+        ) {
+
+          el.playerActor?.classList.add(
+            "walking"
+          );
+
+        } else if (
+          GS.scene === "OVERLOOK"
+        ) {
+
+          el.scenicPlayer?.classList.add(
+            "walking"
+          );
+        }
+      }
+
+    } else {
+
+      stopWalkingAnimation();
     }
 
-    checkInteractiveProximity();
+
+    // Proximity detection.
+    if (GS.scene === "CITY") {
+
+      checkCityProximity();
+
+    } else if (
+      GS.scene === "OVERLOOK"
+    ) {
+
+      checkScenicProximity();
+    }
   }
+
+
+  // ============================================================
+  // 7. GAME LOOP
+  // ============================================================
 
   function gameLoop() {
-    updatePlayerMovement();
-    requestAnimationFrame(gameLoop);
+
+    updateMovement();
+
+    requestAnimationFrame(
+      gameLoop
+    );
   }
 
-  // ==========================================================================
-  // 6. PROXIMITY DETECTION & CONTEXT BUBBLE
-  // ==========================================================================
-  const interactables = [
-    { id: "teaOwner", x: 330, y: 215, label: "TALK", radius: 75 },
-    { id: "student", x: 170, y: 225, label: "TALK", radius: 75 },
-    { id: "doctor", x: 770, y: 225, label: "TALK", radius: 80 },
-    { id: "engineer", x: 550, y: 410, label: "TALK", radius: 80 },
-    { id: "device", x: 460, y: 310, label: "INVESTIGATE", radius: 65 }
+
+  // ============================================================
+  // 8. CITY NPCS
+  // ============================================================
+
+  const cityNPCs = [
+
+    {
+      id: "muthu",
+      el: $("npcMuthu"),
+      x: 326,
+      y: 208,
+      label: "TALK",
+      r: 80
+    },
+
+    {
+      id: "karthik",
+      el: $("npcKarthik"),
+      x: 168,
+      y: 218,
+      label: "TALK",
+      r: 78
+    },
+
+    {
+      id: "priya",
+      el: $("npcPriya"),
+      x: 758,
+      y: 218,
+      label: "TALK",
+      r: 80
+    },
+
+    {
+      id: "kavitha",
+      el: $("npcKavitha"),
+      x: 536,
+      y: 385,
+      label: "TALK",
+      r: 78
+    },
+
+    {
+      id: "device",
+      el: $("fallenDevice"),
+      x: 460,
+      y: 310,
+      label: "INVESTIGATE",
+      r: 68
+    }
   ];
 
-  function checkInteractiveProximity() {
-    const px = gameState.player.x;
-    const py = gameState.player.y;
+
+  // ============================================================
+  // 9. CITY PROXIMITY
+  // ============================================================
+
+  function checkCityProximity() {
+
+    const px = GS.player.x;
+    const py = GS.player.y;
 
     let nearest = null;
     let minD = Infinity;
 
-    for (const item of interactables) {
-      if (item.id === "device" && !gameState.blackoutTriggered) continue;
 
-      const d = Math.hypot(px - item.x, py - item.y);
-      if (d < item.radius && d < minD) {
+    for (const n of cityNPCs) {
+
+      // Device doesn't exist before blackout.
+      if (
+        n.id === "device" &&
+        !GS.blackout
+      ) {
+        continue;
+      }
+
+
+      const d =
+        Math.hypot(
+          px - n.x,
+          py - n.y
+        );
+
+
+      if (
+        d < n.r &&
+        d < minD
+      ) {
         minD = d;
-        nearest = item;
+        nearest = n;
       }
     }
+
 
     if (nearest) {
-      gameState.activeInteractable = nearest.id;
-      els.contextLabel.textContent = nearest.label;
-      els.contextBubble.style.left = `${nearest.x}px`;
-      els.contextBubble.style.top = `${nearest.y - 10}px`;
-      els.contextBubble.classList.remove("hidden");
+
+      GS.activeNPC =
+        nearest.id;
+
+      if (el.contextLabel) {
+        el.contextLabel.textContent =
+          nearest.label;
+      }
+
+
+      if (el.contextBubble) {
+
+        el.contextBubble.style.left =
+          `${nearest.x}px`;
+
+        el.contextBubble.style.top =
+          `${nearest.y - 12}px`;
+
+        el.contextBubble.classList.remove(
+          "hidden"
+        );
+      }
+
     } else {
-      gameState.activeInteractable = null;
-      els.contextBubble.classList.add("hidden");
+
+      GS.activeNPC = null;
+
+      el.contextBubble?.classList.add(
+        "hidden"
+      );
     }
   }
 
-  function handleInteraction() {
-    if (gameState.scene === "DIALOGUE") {
-      advanceDialogue();
+
+  // ============================================================
+  // 10. ENDING RELICS
+  // ============================================================
+
+  /*
+   * These are percentages INSIDE #sceneEnding.
+   *
+   * The fourth relic is intentionally far right.
+   * Holding D / RIGHT will reach it.
+   */
+
+  const scenicRelics = [
+
+    {
+      id: "leaf",
+      x: 0.18,
+      y: 0.45,
+      label: "OBSERVE"
+    },
+
+    {
+      id: "light",
+      x: 0.36,
+      y: 0.32,
+      label: "OBSERVE"
+    },
+
+    {
+      id: "tree",
+      x: 0.60,
+      y: 0.32,
+      label: "OBSERVE"
+    },
+
+    {
+      id: "horizon",
+      x: 0.78,
+      y: 0.45,
+      label: "OBSERVE"
+    }
+  ];
+
+
+  // ============================================================
+  // 11. GET RELIC PIXEL POSITION
+  // ============================================================
+
+  function getRelicPx(relic) {
+
+    const {
+      width,
+      height
+    } = getEndingSize();
+
+
+    return {
+
+      x: relic.x * width,
+
+      y: relic.y * height
+    };
+  }
+
+
+  // ============================================================
+  // 12. SCENIC PROXIMITY
+  // ============================================================
+
+  function checkScenicProximity() {
+
+    const px = GS.scenic.x;
+    const py = GS.scenic.y;
+
+    let nearest = null;
+    let minD = Infinity;
+
+
+    for (const relic of scenicRelics) {
+
+      /*
+       * IMPORTANT:
+       *
+       * Already collected relics are ignored.
+       */
+
+      if (
+        GS.relics[relic.id]
+      ) {
+        continue;
+      }
+
+
+      const pos =
+        getRelicPx(relic);
+
+
+      const d =
+        Math.hypot(
+          px - pos.x,
+          py - pos.y
+        );
+
+
+      if (
+        d < 105 &&
+        d < minD
+      ) {
+        minD = d;
+        nearest = relic;
+      }
+    }
+
+
+    if (nearest) {
+
+      GS.activeRelic =
+        nearest.id;
+
+
+      if (el.relicLabel) {
+        el.relicLabel.textContent =
+          nearest.label;
+      }
+
+
+      const pos =
+        getRelicPx(nearest);
+
+
+      if (el.relicBubble) {
+
+        el.relicBubble.style.left =
+          `${pos.x}px`;
+
+        el.relicBubble.style.top =
+          `${pos.y}px`;
+
+        el.relicBubble.classList.remove(
+          "hidden"
+        );
+      }
+
+    } else {
+
+      GS.activeRelic = null;
+
+      el.relicBubble?.classList.add(
+        "hidden"
+      );
+    }
+  }
+
+
+  // ============================================================
+  // 13. INTERACTION
+  // ============================================================
+
+  function interact() {
+
+    // ----------------------------------------------------------
+    // Dialogue
+    // ----------------------------------------------------------
+
+    if (
+      GS.scene === "DIALOGUE"
+    ) {
+
+      advanceDlg();
       return;
     }
 
-    if (!gameState.activeInteractable) return;
 
-    sfx.interact();
-    const id = gameState.activeInteractable;
+    // ----------------------------------------------------------
+    // CITY
+    // ----------------------------------------------------------
 
-    // SCENE 1: BEFORE BLACKOUT
-    if (!gameState.blackoutTriggered) {
-      if (id === "teaOwner") {
-        gameState.visited.teaShop = true;
-        gameState.dialogueCount++;
-        startDialogue("☕", "MUTHU", "TEA SHOP OWNER", [
-          "Power cut again?",
-          "Third time tonight.",
-          "City says emergency power will only last until midnight."
-        ], () => checkTriggerBlackout());
-      } else if (id === "student") {
-        gameState.visited.student = true;
-        gameState.dialogueCount++;
-        startDialogue("🎒", "KARTHIK", "COLLEGE STUDENT", [
-          "Anna! The metro stopped twice on the bridge earlier.",
-          "Thousands of people are stuck waiting at Central station."
-        ], () => checkTriggerBlackout());
-      } else if (id === "doctor") {
-        gameState.visited.hospital = true;
-        gameState.dialogueCount++;
-        startDialogue("🩺", "DR. PRIYA", "ICU PHYSICIAN", [
-          "Emergency power is running low.",
-          "Our surgical suites are drawing maximum juice from local batteries."
-        ], () => checkTriggerBlackout());
-      } else if (id === "engineer") {
-        gameState.visited.powerStation = true;
-        startDialogue("⚡", "KAVITHA", "GRID CHIEF", [
-          "Load frequency is fluctuating dangerously across the corridor.",
-          "If one more substation trips, we lose automated balancing."
-        ], () => checkTriggerBlackout());
+    if (
+      GS.scene === "CITY"
+    ) {
+
+      if (!GS.activeNPC) {
+        return;
       }
-      return;
+
+
+      sfx.interact();
+
+      const id =
+        GS.activeNPC;
+
+
+      // --------------------------------------------------------
+      // BEFORE BLACKOUT
+      // --------------------------------------------------------
+
+      if (!GS.blackout) {
+
+        if (id === "muthu") {
+
+          GS.visited.muthu = true;
+          GS.talkCount++;
+
+          dlg(
+            "city",
+            "☕",
+            "MUTHU",
+            "TEA MASTER",
+            [
+              "Vanakkam, coordinator! Fresh filter coffee for you?",
+              "Something strange is happening with the power lines today.",
+              "The city feels uneasy. Three outages in the last hour..."
+            ],
+            checkBlackout
+          );
+
+        }
+
+        else if (
+          id === "karthik"
+        ) {
+
+          GS.visited.karthik = true;
+          GS.talkCount++;
+
+          dlg(
+            "city",
+            "🎒",
+            "KARTHIK",
+            "COLLEGE STUDENT",
+            [
+              "Anna! I'm trying to get to my exam! The metro froze twice already.",
+              "Thousands of students are stranded at Chennai Central.",
+              "Something's wrong with the grid..."
+            ],
+            checkBlackout
+          );
+
+        }
+
+        else if (
+          id === "priya"
+        ) {
+
+          GS.visited.priya = true;
+          GS.talkCount++;
+
+          dlg(
+            "city",
+            "🩺",
+            "DR. PRIYA",
+            "ICU PHYSICIAN",
+            [
+              "Coordinator! I'm glad you're here.",
+              "Our ICU has 43 patients on ventilators and surgical monitors.",
+              "Emergency battery gives us only 14 minutes if the main line drops."
+            ],
+            checkBlackout
+          );
+
+        }
+
+        else if (
+          id === "kavitha"
+        ) {
+
+          GS.visited.kavitha = true;
+          GS.talkCount++;
+
+          dlg(
+            "city",
+            "⚡",
+            "KAVITHA",
+            "GRID CHIEF",
+            [
+              "Load frequency is fluctuating badly across the corridor.",
+              "If even one more substation trips, we lose the automated balancing system.",
+              "We need to decide fast — the city is at a tipping point."
+            ],
+            checkBlackout
+          );
+        }
+
+        return;
+      }
+
+
+      // --------------------------------------------------------
+      // AFTER BLACKOUT
+      // --------------------------------------------------------
+
+      if (
+        id === "device"
+      ) {
+
+        if (!GS.firstChoice) {
+
+          openDecision();
+
+        } else {
+
+          openAllocation();
+        }
+
+        return;
+      }
+
+
+      // --------------------------------------------------------
+      // PRIYA
+      // --------------------------------------------------------
+
+      if (
+        id === "priya" &&
+        !GS.post.priya
+      ) {
+
+        GS.post.priya = true;
+        GS.visited.priya = true;
+
+
+        const lines =
+          GS.firstChoice === "HOSPITAL"
+
+            ? [
+                "Thank you for keeping us online!",
+                "Listen — we don't actually need the whole grid.",
+                "Critical care only needs about 30 units of power."
+              ]
+
+            : [
+                "We're draining battery fast — maybe 14 minutes left!",
+                "If you can re-route the feeder...",
+                "Critical care only needs 30 units. Please act soon!"
+              ];
+
+
+        dlg(
+          "city",
+          "🩺",
+          "DR. PRIYA",
+          "ICU PHYSICIAN",
+          lines,
+          checkExploreProgress
+        );
+      }
+
+
+      // --------------------------------------------------------
+      // KARTHIK
+      // --------------------------------------------------------
+
+      else if (
+        id === "karthik" &&
+        !GS.post.karthik
+      ) {
+
+        GS.post.karthik = true;
+        GS.visited.karthik = true;
+
+
+        const lines =
+          GS.firstChoice === "METRO"
+
+            ? [
+                "The trains are moving! We can evacuate!",
+                "The transit team confirmed — reduced service only needs 30 units of power!"
+              ]
+
+            : [
+                "We're still trapped... people are panicking in the tunnels.",
+                "The technician says — even slow trains only need 30 units to safely run!"
+              ];
+
+
+        dlg(
+          "city",
+          "🎒",
+          "KARTHIK",
+          "COLLEGE STUDENT",
+          lines,
+          checkExploreProgress
+        );
+      }
+
+
+      // --------------------------------------------------------
+      // KAVITHA
+      // --------------------------------------------------------
+
+      else if (
+        id === "kavitha" &&
+        !GS.post.kavitha
+      ) {
+
+        GS.post.kavitha = true;
+        GS.visited.kavitha = true;
+
+
+        dlg(
+          "city",
+          "⚡",
+          "KAVITHA",
+          "GRID CHIEF",
+          [
+            "Coordinator — look at the telemetry.",
+            "Every re-route bleeds the reserve from another sector.",
+            "The central buffer needs at least 35 units to prevent a city-wide cascade failure.",
+            "Protect the buffer. That's the key to everything."
+          ],
+          checkExploreProgress
+        );
+      }
+
+
+      // --------------------------------------------------------
+      // MUTHU AFTER BLACKOUT
+      // --------------------------------------------------------
+
+      else if (
+        id === "muthu"
+      ) {
+
+        const lines =
+          GS.firstChoice === "HOSPITAL"
+
+            ? [
+                "You saved the hospital — but look at those stranded commuters...",
+                "Every choice takes something away, doesn't it?"
+              ]
+
+            : [
+                "The trains are running — but the hospital emergency beacons are red.",
+                "One problem fixed, another problem born."
+              ];
+
+
+        dlg(
+          "city",
+          "☕",
+          "MUTHU",
+          "TEA MASTER",
+          lines
+        );
+      }
     }
 
-    // SCENE 2: STRANGE FALLEN DEVICE INTERACTION
-    if (id === "device") {
-      if (!gameState.firstChoice) {
-        // Open Device Minigame
-        openDeviceModal();
-      } else {
-        // Check if explored enough to open final allocation
-        openFinalAllocationModal();
-      }
-      return;
-    }
 
-    // SCENE 3 & 4: EXPLORATION & DISCOVERING THE TRUTH (WORLD MEMORY)
-    if (id === "doctor") {
-      gameState.visited.hospital = true;
-      if (gameState.firstChoice === "HOSPITAL") {
-        startDialogue("🩺", "DR. PRIYA", "ICU PHYSICIAN", [
-          "Thank god... the surgical monitors stayed online.",
-          "Listen to me carefully: We don't need the whole grid.",
-          "We only need enough power for critical care—around 30 to 35 units is sufficient!"
-        ], () => checkExplorationProgress());
-      } else {
-        startDialogue("🩺", "DR. PRIYA", "ICU PHYSICIAN", [
-          "We're on battery reserves! 14 minutes left!",
-          "If you ever re-route the feeder: We don't need the whole grid.",
-          "We only need enough power for critical care—around 30 to 35 units!"
-        ], () => checkExplorationProgress());
+    // ----------------------------------------------------------
+    // OVERLOOK
+    // ----------------------------------------------------------
+
+    if (
+      GS.scene === "OVERLOOK"
+    ) {
+
+      if (!GS.activeRelic) {
+        return;
       }
-    } else if (id === "student") {
-      gameState.visited.metro = true;
-      if (gameState.firstChoice === "METRO") {
-        startDialogue("🎒", "KARTHIK", "COLLEGE STUDENT", [
-          "Anna! The trains are moving! We can get home!",
-          "The operator announced over the intercom:",
-          "They can run reduced service with just 30 units of power to keep air flowing!"
-        ], () => checkExplorationProgress());
-      } else {
-        startDialogue("🎒", "KARTHIK", "COLLEGE STUDENT", [
-          "The trains are still dead... we're stuck here in the tunnel fumes.",
-          "The transit technician said we don't need full speed—",
-          "The metro can run safe reduced service with just 30 units!"
-        ], () => checkExplorationProgress());
+
+
+      const id =
+        GS.activeRelic;
+
+
+      /*
+       * Prevent interaction with a relic
+       * that was already collected.
+       */
+
+      if (
+        GS.relics[id]
+      ) {
+        return;
       }
-    } else if (id === "engineer") {
-      gameState.visited.powerStation = true;
-      startDialogue("⚡", "KAVITHA", "GRID CHIEF", [
-        "Coordinator, look at the telemetry telemetry board.",
-        "The grid isn't failing on its own.",
-        "The problem is the allocation.",
-        "Every time you redirect power... another sector loses its reserve.",
-        "The central grid requires at least 35 units of reserve buffer, or the entire city drops together!"
-      ], () => checkExplorationProgress());
-    } else if (id === "teaOwner") {
-      gameState.visited.teaShop = true;
-      if (gameState.firstChoice === "HOSPITAL") {
-        startDialogue("☕", "MUTHU", "TEA SHOP OWNER", [
-          "You helped the hospital...",
-          "But the metro... hundreds of people are locked outside the gate.",
-          "Every action takes something away, doesn't it?"
-        ]);
-      } else {
-        startDialogue("☕", "MUTHU", "TEA SHOP OWNER", [
-          "The commuters made it through...",
-          "But look at the hospital across the street—emergency beacons are flashing red.",
-          "One problem fixed, another problem born."
-        ]);
+
+
+      sfx.relic();
+
+
+      // --------------------------------------------------------
+      // LEAF
+      // --------------------------------------------------------
+
+      if (
+        id === "leaf"
+      ) {
+
+        GS.relics.leaf = true;
+
+        el.tagLeaf.textContent =
+          "அழிவதூஉம்";
+
+        el.tagLeaf.classList.add(
+          "found"
+        );
+
+
+        GS.activeRelic = null;
+
+
+        dlg(
+          "ending",
+          "🌱",
+          "ANCIENT SAGE",
+          "A FALLEN GOLDEN LEAF",
+          [
+            "Every choice leaves something behind.",
+            "அழிவதூஉம் — What may be lost..."
+          ],
+          checkRelics
+        );
+      }
+
+
+      // --------------------------------------------------------
+      // LIGHT
+      // --------------------------------------------------------
+
+      else if (
+        id === "light"
+      ) {
+
+        GS.relics.light = true;
+
+        el.tagLight.textContent =
+          "ஆவதூஉம் ஆகி";
+
+        el.tagLight.classList.add(
+          "found"
+        );
+
+
+        GS.activeRelic = null;
+
+
+        dlg(
+          "ending",
+          "💡",
+          "ANCIENT SAGE",
+          "CITY LIGHT BEACON",
+          [
+            "A choice can also create something new.",
+            "ஆவதூஉம் ஆகி — What may result..."
+          ],
+          checkRelics
+        );
+      }
+
+
+      // --------------------------------------------------------
+      // TREE
+      // --------------------------------------------------------
+
+      else if (
+        id === "tree"
+      ) {
+
+        GS.relics.tree = true;
+
+        el.tagTree.textContent =
+          "வழிபயக்கும்";
+
+        el.tagTree.classList.add(
+          "found"
+        );
+
+
+        GS.activeRelic = null;
+
+
+        dlg(
+          "ending",
+          "🌳",
+          "ANCIENT SAGE",
+          "ANCIENT BANYAN PATH",
+          [
+            "But what happens next — that is what matters most.",
+            "வழிபயக்கும் — What consequence may follow downstream..."
+          ],
+          checkRelics
+        );
+      }
+
+
+      // --------------------------------------------------------
+      // HORIZON — FOURTH RELIC
+      // --------------------------------------------------------
+
+      else if (
+        id === "horizon"
+      ) {
+
+        GS.relics.horizon = true;
+
+        el.tagHorizon.textContent =
+          "ஊதியமும் சூழ்ந்து செயல்";
+
+        el.tagHorizon.classList.add(
+          "found"
+        );
+
+
+        GS.activeRelic = null;
+
+
+        dlg(
+          "ending",
+          "🌅",
+          "ANCIENT SAGE",
+          "HORIZON OVERLOOK",
+          [
+            "Think beyond the first result. Deliberate thoroughly.",
+            "ஊதியமும் சூழ்ந்து செயல் — Act only after deep consideration."
+          ],
+          checkRelics
+        );
       }
     }
   }
 
-  // ==========================================================================
-  // 7. DIALOGUE SYSTEM (Typewriter & Fast Skip)
-  // ==========================================================================
-  function startDialogue(avatar, name, title, lines, onEnd = null) {
-    gameState.scene = "DIALOGUE";
-    gameState.dialogueQueue = lines;
-    gameState.dialogueIndex = 0;
-    gameState.onDialogueEnd = onEnd;
 
-    els.dialogueAvatar.textContent = avatar;
-    els.dialogueName.textContent = name;
-    els.dialogueTitle.textContent = title;
+  // ============================================================
+  // 14. DIALOGUE SYSTEM
+  // ============================================================
 
-    els.dialogueTray.classList.remove("hidden");
+  function dlg(
+    scene,
+    avatar,
+    name,
+    title,
+    lines,
+    onEnd = null
+  ) {
+
+    GS.scene = "DIALOGUE";
+
+    GS.dlgScene = scene;
+
+    GS.dlgQueue =
+      Array.isArray(lines)
+        ? lines
+        : [String(lines)];
+
+    GS.dlgIdx = 0;
+
+    GS.dlgOnEnd = onEnd;
+
+
+    if (
+      scene === "city"
+    ) {
+
+      el.dialogueAvatar.textContent =
+        avatar;
+
+      el.dialogueName.textContent =
+        name;
+
+      el.dialogueTitle.textContent =
+        title;
+
+      el.dialogueTray.classList.remove(
+        "hidden"
+      );
+
+    } else {
+
+      el.dialogueAvatarS.textContent =
+        avatar;
+
+      el.dialogueNameS.textContent =
+        name;
+
+      el.dialogueTitleS.textContent =
+        title;
+
+      el.dialogueTrayShared.classList.remove(
+        "hidden"
+      );
+    }
+
+
     typeCurrentLine();
   }
 
-  function typeCurrentLine() {
-    if (gameState.typewriterTimer) clearInterval(gameState.typewriterTimer);
 
-    const text = gameState.dialogueQueue[gameState.dialogueIndex];
-    els.dialogueContent.textContent = "";
-    gameState.isTyping = true;
+  function typeCurrentLine() {
+
+    if (
+      GS.dlgTimer
+    ) {
+      clearInterval(
+        GS.dlgTimer
+      );
+    }
+
+
+    const contentEl =
+      GS.dlgScene === "city"
+        ? el.dialogueContent
+        : el.dialogueContentS;
+
+
+    const text =
+      GS.dlgQueue[
+        GS.dlgIdx
+      ] ?? "";
+
+
+    contentEl.textContent = "";
+
+    GS.dlgTyping = true;
+
 
     let i = 0;
-    gameState.typewriterTimer = setInterval(() => {
-      if (i < text.length) {
-        els.dialogueContent.textContent += text[i];
-        if (i % 3 === 0) sfx.blip();
-        i++;
-      } else {
-        clearInterval(gameState.typewriterTimer);
-        gameState.isTyping = false;
-      }
-    }, 16);
+
+
+    GS.dlgTimer =
+      setInterval(() => {
+
+        if (
+          i < text.length
+        ) {
+
+          contentEl.textContent +=
+            text[i];
+
+          if (
+            i % 3 === 0
+          ) {
+            sfx.blip();
+          }
+
+          i++;
+
+        } else {
+
+          clearInterval(
+            GS.dlgTimer
+          );
+
+          GS.dlgTimer = null;
+
+          GS.dlgTyping = false;
+        }
+
+      }, 17);
   }
 
-  function advanceDialogue() {
-    if (gameState.isTyping) {
-      // Instant skip
-      clearInterval(gameState.typewriterTimer);
-      els.dialogueContent.textContent = gameState.dialogueQueue[gameState.dialogueIndex];
-      gameState.isTyping = false;
+
+  function advanceDlg() {
+
+    const contentEl =
+      GS.dlgScene === "city"
+        ? el.dialogueContent
+        : el.dialogueContentS;
+
+
+    // If currently typing,
+    // first click completes the sentence.
+
+    if (
+      GS.dlgTyping
+    ) {
+
+      if (
+        GS.dlgTimer
+      ) {
+        clearInterval(
+          GS.dlgTimer
+        );
+      }
+
+      GS.dlgTimer = null;
+
+      contentEl.textContent =
+        GS.dlgQueue[
+          GS.dlgIdx
+        ];
+
+      GS.dlgTyping = false;
+
       return;
     }
 
-    sfx.blip();
-    gameState.dialogueIndex++;
 
-    if (gameState.dialogueIndex < gameState.dialogueQueue.length) {
+    sfx.blip();
+
+
+    GS.dlgIdx++;
+
+
+    if (
+      GS.dlgIdx <
+      GS.dlgQueue.length
+    ) {
+
       typeCurrentLine();
-    } else {
-      // Finish dialogue
-      els.dialogueTray.classList.add("hidden");
-      gameState.scene = "CITY";
-      if (gameState.onDialogueEnd) {
-        const cb = gameState.onDialogueEnd;
-        gameState.onDialogueEnd = null;
-        cb();
-      }
+
+      return;
+    }
+
+
+    // Dialogue finished.
+
+    el.dialogueTray?.classList.add(
+      "hidden"
+    );
+
+    el.dialogueTrayShared?.classList.add(
+      "hidden"
+    );
+
+
+    GS.scene =
+      GS.dlgScene === "city"
+        ? "CITY"
+        : "OVERLOOK";
+
+
+    if (
+      GS.dlgOnEnd
+    ) {
+
+      const callback =
+        GS.dlgOnEnd;
+
+      GS.dlgOnEnd = null;
+
+      callback();
     }
   }
 
-  // ==========================================================================
-  // 8. THE BLACKOUT EVENT
-  // ==========================================================================
-  function checkTriggerBlackout() {
-    if (gameState.blackoutTriggered) return;
 
-    if (gameState.dialogueCount >= 2) {
+  // ============================================================
+  // 15. BLACKOUT
+  // ============================================================
+
+  function checkBlackout() {
+
+    if (
+      !GS.blackout &&
+      GS.talkCount >= 2
+    ) {
+
       triggerBlackout();
     }
   }
 
+
   function triggerBlackout() {
-    gameState.blackoutTriggered = true;
+
+    GS.blackout = true;
+
     sfx.blackout();
 
-    // Flickering street effect
-    [els.pool1, els.pool2, els.pool3, els.pool4].forEach((pool) => pool.classList.add("darkened"));
 
-    // Metro stops
-    els.metroStatusPill.textContent = "HALTED !";
-    els.metroStatusPill.style.backgroundColor = "var(--c-red-tint)";
-    els.metroStatusPill.style.color = "var(--c-red)";
-    els.metroGateLight.style.backgroundColor = "var(--c-red)";
+    [
+      el.pool1,
+      el.pool2,
+      el.pool3,
+      el.pool4
+    ].forEach(pool => {
+      pool?.classList.add(
+        "darkened"
+      );
+    });
 
-    // Hospital alarms
-    els.hospStatusPill.textContent = "BATTERY 14m";
-    els.hospStatusPill.style.backgroundColor = "var(--c-red-tint)";
-    els.hospStatusPill.style.color = "var(--c-red)";
-    els.hospCross.classList.add("beacon-flashing");
 
-    // Cables turn strained
-    els.cableSubToMetro.setAttribute("class", "cable-line cable-dead");
-    els.cableSubToHosp.setAttribute("class", "cable-line cable-dead");
+    if (el.metroStatusPill) {
 
-    // Reveal the fallen mysterious device
-    els.fallenDevice.classList.remove("hidden");
+      el.metroStatusPill.textContent =
+        "HALTED !";
 
-    showWorldBanner("⚠ SUDDEN POWER CASCADE", "Central feeder tripped! A glowing node crashed onto the road.");
-    updateObjective("A strange device crashed in the middle of the street. Investigate it.");
+      el.metroStatusPill.style.background =
+        "var(--c-red-t)";
+
+      el.metroStatusPill.style.color =
+        "var(--c-red)";
+    }
+
+
+    if (el.metroGateLight) {
+
+      el.metroGateLight.style.background =
+        "var(--c-red)";
+    }
+
+
+    if (el.hospStatusPill) {
+
+      el.hospStatusPill.textContent =
+        "BATTERY 14m";
+
+      el.hospStatusPill.style.background =
+        "var(--c-red-t)";
+
+      el.hospStatusPill.style.color =
+        "var(--c-red)";
+    }
+
+
+    el.hospCross?.classList.add(
+      "beacon-flashing"
+    );
+
+
+    el.cableSubToMetro?.setAttribute(
+      "class",
+      "cable-line cable-dead"
+    );
+
+    el.cableSubToHosp?.setAttribute(
+      "class",
+      "cable-line cable-dead"
+    );
+
+
+    el.fallenDevice?.classList.remove(
+      "hidden"
+    );
+
+
+    showBanner(
+      "⚡",
+      "⚠ POWER CASCADE! A glowing node crashed on the road. Investigate it!"
+    );
+
+
+    setObjective(
+      "A strange energy node fell in the street. Walk over and INVESTIGATE it."
+    );
   }
 
-  function showWorldBanner(title, text) {
-    els.bannerIcon.textContent = "⚡";
-    els.bannerText.innerHTML = `<strong>${title}:</strong> ${text}`;
-    els.worldBanner.classList.remove("hidden");
 
-    setTimeout(() => {
-      els.worldBanner.classList.add("hidden");
-    }, 4500);
+  // ============================================================
+  // 16. BANNER / OBJECTIVE
+  // ============================================================
+
+  let bannerTimer = null;
+
+
+  function showBanner(
+    icon,
+    text
+  ) {
+
+    if (!el.worldBanner) {
+      return;
+    }
+
+
+    el.bannerIcon.textContent =
+      icon;
+
+    el.bannerText.textContent =
+      text;
+
+
+    el.worldBanner.classList.remove(
+      "hidden"
+    );
+
+
+    if (bannerTimer) {
+      clearTimeout(
+        bannerTimer
+      );
+    }
+
+
+    bannerTimer =
+      setTimeout(() => {
+
+        el.worldBanner.classList.add(
+          "hidden"
+        );
+
+      }, 5000);
   }
 
-  function updateObjective(text) {
-    els.objectiveText.textContent = text;
+
+  function setObjective(text) {
+
+    if (
+      el.objectiveText
+    ) {
+      el.objectiveText.textContent =
+        text;
+    }
   }
 
-  // ==========================================================================
-  // 9. SCENE 2: STRANGE DEVICE MINIGAME
-  // ==========================================================================
-  function openDeviceModal() {
-    gameState.scene = "DEVICE";
-    sfx.interact();
-    els.modalDevice.classList.remove("hidden");
+
+  // ============================================================
+  // 17. FIRST DECISION
+  // ============================================================
+
+  function openDecision() {
+
+    GS.scene = "DEVICE";
+
+    el.modalDevice?.classList.remove(
+      "hidden"
+    );
   }
 
-  function selectFirstChoice(choice) {
+
+  function makeFirstChoice(choice) {
+
     sfx.choice();
-    gameState.firstChoice = choice;
-    els.modalDevice.classList.add("hidden");
-    gameState.scene = "CITY";
 
-    if (choice === "HOSPITAL") {
-      // Hospital gets power
-      els.hospStatusPill.textContent = "STABLE ✓";
-      els.hospStatusPill.style.backgroundColor = "var(--c-green-tint)";
-      els.hospStatusPill.style.color = "var(--c-green)";
-      els.hospCross.classList.remove("beacon-flashing");
-      [els.hw1, els.hw2, els.hw3].forEach((w) => w.classList.remove("dark"));
+    GS.firstChoice =
+      choice;
 
-      // Metro stays dark
-      els.metroStatusPill.textContent = "DARK / STRANDED";
-      els.cableSubToHosp.setAttribute("class", "cable-line cable-powered");
-      els.cableSubToMetro.setAttribute("class", "cable-line cable-dead");
 
-      showWorldBanner(
-        "HOSPITAL POWERED",
-        "Hospital emergency systems stay online. But the metro network begins losing power."
+    el.modalDevice?.classList.add(
+      "hidden"
+    );
+
+
+    GS.scene = "CITY";
+
+
+    // ----------------------------------------------------------
+    // HOSPITAL
+    // ----------------------------------------------------------
+
+    if (
+      choice === "HOSPITAL"
+    ) {
+
+      el.hospStatusPill.textContent =
+        "STABLE";
+
+      el.hospStatusPill.style.background =
+        "var(--c-green-t)";
+
+      el.hospStatusPill.style.color =
+        "var(--c-emerald)";
+
+
+      el.hospCross?.classList.remove(
+        "beacon-flashing"
       );
-    } else {
-      // Metro gets power
-      els.metroStatusPill.textContent = "ACTIVE ✓";
-      els.metroStatusPill.style.backgroundColor = "var(--c-green-tint)";
-      els.metroStatusPill.style.color = "var(--c-green)";
-      els.metroGateLight.style.backgroundColor = "var(--c-cyan)";
 
-      // Hospital critical
-      els.hospStatusPill.textContent = "BATTERY CRITICAL";
-      [els.hw1, els.hw2].forEach((w) => w.classList.add("dark"));
 
-      els.cableSubToMetro.setAttribute("class", "cable-line cable-powered");
-      els.cableSubToHosp.setAttribute("class", "cable-line cable-dead");
+      [
+        el.hw1,
+        el.hw2,
+        el.hw3
+      ].forEach(w => {
+        w?.classList.remove(
+          "dark"
+        );
+      });
 
-      showWorldBanner(
-        "METRO POWERED",
-        "Commuters safely evacuated. But hospital trauma units switch to 14-minute emergency battery."
+
+      el.cableSubToHosp?.setAttribute(
+        "class",
+        "cable-line cable-powered"
+      );
+
+      el.cableSubToMetro?.setAttribute(
+        "class",
+        "cable-line cable-dead"
+      );
+
+
+      showBanner(
+        "🏥",
+        "Hospital secured. But the metro network begins losing power..."
       );
     }
 
-    updateObjective("Find out why the city's reserve is failing. Visit the Hospital, Metro, and Power Station.");
+
+    // ----------------------------------------------------------
+    // METRO
+    // ----------------------------------------------------------
+
+    else {
+
+      el.metroStatusPill.textContent =
+        "ACTIVE";
+
+      el.metroStatusPill.style.background =
+        "var(--c-green-t)";
+
+      el.metroStatusPill.style.color =
+        "var(--c-emerald)";
+
+
+      el.metroGateLight.style.background =
+        "var(--c-cyan)";
+
+
+      el.hospStatusPill.textContent =
+        "BATTERY CRITICAL";
+
+
+      el.hw1?.classList.add(
+        "dark"
+      );
+
+      el.hw2?.classList.add(
+        "dark"
+      );
+
+
+      el.cableSubToMetro?.setAttribute(
+        "class",
+        "cable-line cable-powered"
+      );
+
+      el.cableSubToHosp?.setAttribute(
+        "class",
+        "cable-line cable-dead"
+      );
+
+
+      showBanner(
+        "🚇",
+        "Metro powered! But hospital trauma units switch to 14-min emergency battery."
+      );
+    }
+
+
+    setObjective(
+      "Visit the Hospital, Metro Station, and Power Grid to learn the full picture."
+    );
   }
 
-  // ==========================================================================
-  // 10. SCENE 3 & 4: DISCOVERING THE TRUTH
-  // ==========================================================================
-  function checkExplorationProgress() {
-    const visitedCount =
-      (gameState.visited.hospital ? 1 : 0) +
-      (gameState.visited.metro ? 1 : 0) +
-      (gameState.visited.powerStation ? 1 : 0);
 
-    if (visitedCount >= 3) {
-      updateObjective("You have gathered all sector telemetry. Return to City Node 07 for the Final Decision!");
-      showWorldBanner("SYSTEM PATTERN DISCOVERED", "You now understand how every sector interconnects.");
+  // ============================================================
+  // 18. EXPLORATION TRACKING
+  // ============================================================
+
+  function checkExploreProgress() {
+
+    const count =
+      (GS.post.priya ? 1 : 0) +
+      (GS.post.karthik ? 1 : 0) +
+      (GS.post.kavitha ? 1 : 0);
+
+
+    if (
+      count >= 2
+    ) {
+
+      setObjective(
+        "You know enough. Return to the power node and make THE LAST DECISION."
+      );
+
     } else {
-      updateObjective(`Investigate remaining sectors (${visitedCount}/3 discovered).`);
+
+      setObjective(
+        `Gather information (${count}/3 sectors investigated).`
+      );
     }
   }
 
-  // ==========================================================================
-  // 11. SCENE 5: THE LAST DECISION — ENERGY ALLOCATION
-  // ==========================================================================
-  function openFinalAllocationModal() {
-    gameState.scene = "ALLOCATION";
-    sfx.interact();
-    syncAllocationUI();
-    els.modalAllocation.classList.remove("hidden");
+
+  // ============================================================
+  // 19. FINAL ALLOCATION
+  // ============================================================
+
+  function openAllocation() {
+
+    GS.scene =
+      "ALLOCATION";
+
+
+    syncAllocUI();
+
+
+    el.modalAllocation?.classList.remove(
+      "hidden"
+    );
   }
 
-  function handleSliderChange(changedSector) {
-    let h = parseInt(els.sliderHosp.value, 10);
-    let g = parseInt(els.sliderGrid.value, 10);
-    let m = parseInt(els.sliderMetro.value, 10);
 
-    let total = h + g + m;
+  function handleSlider(changed) {
 
-    // Rebalance dynamically so total stays exactly 100
-    if (total !== 100) {
-      const diff = 100 - total;
-      if (changedSector === "hosp") {
-        g = Math.max(10, Math.min(70, g + Math.round(diff / 2)));
-        m = Math.max(10, Math.min(70, 100 - h - g));
-      } else if (changedSector === "grid") {
-        h = Math.max(10, Math.min(70, h + Math.round(diff / 2)));
-        m = Math.max(10, Math.min(70, 100 - h - g));
-      } else {
-        h = Math.max(10, Math.min(70, h + Math.round(diff / 2)));
-        g = Math.max(10, Math.min(70, 100 - h - m));
+    let h =
+      Number(el.sliderHosp.value);
+
+    let g =
+      Number(el.sliderGrid.value);
+
+    let m =
+      Number(el.sliderMetro.value);
+
+
+    let total =
+      h + g + m;
+
+
+    if (
+      total !== 100
+    ) {
+
+      const diff =
+        100 - total;
+
+
+      if (
+        changed === "h"
+      ) {
+
+        g = Math.max(
+          10,
+          Math.min(
+            70,
+            g + Math.round(diff / 2)
+          )
+        );
+
+        m =
+          Math.max(
+            10,
+            Math.min(
+              70,
+              100 - h - g
+            )
+          );
+
       }
+
+      else if (
+        changed === "g"
+      ) {
+
+        h = Math.max(
+          10,
+          Math.min(
+            70,
+            h + Math.round(diff / 2)
+          )
+        );
+
+        m =
+          Math.max(
+            10,
+            Math.min(
+              70,
+              100 - h - g
+            )
+          );
+
+      }
+
+      else {
+
+        h = Math.max(
+          10,
+          Math.min(
+            70,
+            h + Math.round(diff / 2)
+          )
+        );
+
+        g =
+          Math.max(
+            10,
+            Math.min(
+              70,
+              100 - h - m
+            )
+          );
+      }
+
+
+      el.sliderHosp.value = h;
+      el.sliderGrid.value = g;
+      el.sliderMetro.value = m;
     }
 
-    els.sliderHosp.value = h;
-    els.sliderGrid.value = g;
-    els.sliderMetro.value = m;
 
-    gameState.finalAllocation.hospital = h;
-    gameState.finalAllocation.grid = g;
-    gameState.finalAllocation.metro = m;
+    GS.finalAlloc = {
+      h,
+      g,
+      m
+    };
 
-    syncAllocationUI();
+
+    syncAllocUI();
   }
 
-  function syncAllocationUI() {
-    const h = gameState.finalAllocation.hospital;
-    const g = gameState.finalAllocation.grid;
-    const m = gameState.finalAllocation.metro;
 
-    els.valHospDisplay.textContent = `${h}%`;
-    els.valGridDisplay.textContent = `${g}%`;
-    els.valMetroDisplay.textContent = `${m}%`;
+  function syncAllocUI() {
 
-    els.segHosp.style.width = `${h}%`;
-    els.segGrid.style.width = `${g}%`;
-    els.segMetro.style.width = `${m}%`;
+    const {
+      h,
+      g,
+      m
+    } = GS.finalAlloc;
 
-    els.allocTotalDisplay.textContent = `${h + g + m} / 100 UNITS`;
 
-    // Real-time environmental feedback notes
-    if (h < 25) {
-      els.noteHosp.innerHTML = "<strong style='color:var(--c-red)'>CRITICAL FAILURE:</strong> Ventilators trip. Patients perish.";
-    } else if (h <= 40) {
-      els.noteHosp.innerHTML = "<span style='color:var(--c-green)'>OPTIMAL:</span> ICU & surgical life-support sustained.";
-    } else {
-      els.noteHosp.innerHTML = "<span style='color:var(--c-yellow)'>EXCESS DRAW:</span> Wastes energy on non-vital air conditioning.";
+    if (el.valHospDisplay) {
+      el.valHospDisplay.textContent =
+        `${h}%`;
     }
 
-    if (g < 25) {
-      els.noteGrid.innerHTML = "<strong style='color:var(--c-red)'>NO BUFFER:</strong> Grid collapses instantly upon secondary shock.";
-    } else if (g <= 45) {
-      els.noteGrid.innerHTML = "<span style='color:var(--c-green)'>BALANCED:</span> Adequate buffer prevents cascading metropolitan trip.";
-    } else {
-      els.noteGrid.innerHTML = "<span style='color:var(--c-yellow)'>HOARDING:</span> Power sitting idle while civic sectors strain.";
+    if (el.valGridDisplay) {
+      el.valGridDisplay.textContent =
+        `${g}%`;
     }
 
-    if (m < 25) {
-      els.noteMetro.innerHTML = "<strong style='color:var(--c-red)'>HALTED:</strong> Thousands stranded in underground dark.";
-    } else if (m <= 35) {
-      els.noteMetro.innerHTML = "<span style='color:var(--c-green)'>REDUCED SERVICE:</span> Safe evacuation transit maintained.";
-    } else {
-      els.noteMetro.innerHTML = "<span style='color:var(--c-yellow)'>HIGH SPEED:</span> High traction current drains the central grid.";
+    if (el.valMetroDisplay) {
+      el.valMetroDisplay.textContent =
+        `${m}%`;
+    }
+
+
+    if (el.segHosp) {
+      el.segHosp.style.width =
+        `${h}%`;
+    }
+
+    if (el.segGrid) {
+      el.segGrid.style.width =
+        `${g}%`;
+    }
+
+    if (el.segMetro) {
+      el.segMetro.style.width =
+        `${m}%`;
+    }
+
+
+    if (el.allocTotalDisplay) {
+      el.allocTotalDisplay.textContent =
+        `${h + g + m} / 100 UNITS`;
+    }
+
+
+    if (el.noteHosp) {
+
+      el.noteHosp.innerHTML =
+        h < 25
+
+          ? "<strong style='color:var(--c-red)'>CRITICAL:</strong> Ventilators trip. Lives at risk."
+
+          : h <= 42
+
+            ? "<span style='color:var(--c-emerald)'>OPTIMAL:</span> ICU and surgical life-support sustained."
+
+            : "<span style='color:var(--c-yellow)'>EXCESS:</span> Wastes energy on non-vital systems.";
+    }
+
+
+    if (el.noteGrid) {
+
+      el.noteGrid.innerHTML =
+        g < 25
+
+          ? "<strong style='color:var(--c-red)'>NO BUFFER:</strong> City-wide cascade failure inevitable."
+
+          : g <= 46
+
+            ? "<span style='color:var(--c-emerald)'>BALANCED:</span> Protects against cascading metro-wide failure."
+
+            : "<span style='color:var(--c-yellow)'>HOARDING:</span> Power idling while sectors strain.";
+    }
+
+
+    if (el.noteMetro) {
+
+      el.noteMetro.innerHTML =
+        m < 25
+
+          ? "<strong style='color:var(--c-red)'>HALTED:</strong> Thousands stranded underground."
+
+          : m <= 36
+
+            ? "<span style='color:var(--c-emerald)'>REDUCED SERVICE:</span> Safe, steady evacuation transit."
+
+            : "<span style='color:var(--c-yellow)'>OVERDRIVE:</span> High traction drains the central buffer.";
     }
   }
 
-  function commitFinalAllocation() {
+
+  function commitAllocation() {
+
     sfx.choice();
-    els.modalAllocation.classList.add("hidden");
 
-    const h = gameState.finalAllocation.hospital;
-    const g = gameState.finalAllocation.grid;
-    const m = gameState.finalAllocation.metro;
+    el.modalAllocation?.classList.add(
+      "hidden"
+    );
+
+
+    const {
+      h,
+      g,
+      m
+    } = GS.finalAlloc;
+
 
     const visitedAll =
-      gameState.visited.hospital && gameState.visited.metro && gameState.visited.powerStation;
+      GS.post.priya &&
+      GS.post.karthik &&
+      GS.post.kavitha;
 
-    // EVALUATE ENDING:
-    // Ending 1: THE SAVIOR (One sector heavily over-allocated > 50% or another starved < 20%)
-    // Ending 2: THE SURVIVOR (Balanced numbers, but player did NOT explore the 3 locations)
-    // Ending 3: THE THINKER (Explored all locations AND balanced between: Hosp 25-40, Grid 25-45, Metro 25-35)
-    if (h > 50 || g > 50 || m > 50 || h < 20 || g < 20 || m < 20) {
-      gameState.ending = "SAVIOR";
-    } else if (!visitedAll) {
-      gameState.ending = "SURVIVOR";
-    } else {
-      gameState.ending = "THINKER";
+
+    /*
+     * Three possible endings:
+     *
+     * SAVIOR   = extreme allocation
+     * SURVIVOR = balanced but didn't gather all information
+     * THINKER  = gathered information + balanced decision
+     */
+
+    if (
+      h > 50 ||
+      g > 50 ||
+      m > 50 ||
+      h < 20 ||
+      g < 20 ||
+      m < 20
+    ) {
+
+      GS.ending =
+        "SAVIOR";
+
     }
 
-    triggerEndingSequence();
-  }
+    else if (
+      !visitedAll
+    ) {
 
-  // ==========================================================================
-  // 12. ENDINGS & THIRUKKURAL 461 REVEAL
-  // ==========================================================================
-  function triggerEndingSequence() {
-    switchScene("ENDING");
+      GS.ending =
+        "SURVIVOR";
 
-    if (gameState.ending === "THINKER") {
-      sfx.success();
-      els.verdictBanner.className = "verdict-banner";
-      els.verdictCategory.textContent = "ENDING: THE THINKER (OPTIMAL OUTCOME)";
-      els.verdictHeadline.textContent = "THE CITY SURVIVED.";
-      els.verdictNarr1.textContent = "You didn't choose what mattered most.";
-      els.verdictNarr2.textContent = "You understood what each choice would cost.";
-      els.verdictHighlight.textContent =
-        "THE CITY SURVIVED BECAUSE YOU THOUGHT BEYOND THE FIRST MOVE.";
-    } else if (gameState.ending === "SURVIVOR") {
-      sfx.interact();
-      els.verdictBanner.className = "verdict-banner survivor";
-      els.verdictCategory.textContent = "ENDING: THE SURVIVOR";
-      els.verdictHeadline.textContent = "THE CITY SURVIVED UNDER STRAIN.";
-      els.verdictNarr1.textContent = "Nothing collapsed.";
-      els.verdictNarr2.textContent = "But nothing was free.";
-      els.verdictHighlight.textContent =
-        "You balanced the meters by instinct, but missed key intelligence from the sectors.";
-    } else {
-      sfx.blackout();
-      els.verdictBanner.className = "verdict-banner savior";
-      els.verdictCategory.textContent = "ENDING: THE SAVIOR";
-      els.verdictHeadline.textContent = "ONE SYSTEM SURVIVED.";
-      els.verdictNarr1.textContent = "You saved one problem.";
-      els.verdictNarr2.textContent = "You created another.";
-      els.verdictHighlight.textContent =
-        "Over-prioritizing the visible emergency caused a catastrophic failure elsewhere.";
     }
 
-    // Populate Journey Recap
-    els.recapGrid.innerHTML = `
-      <div class="recap-card">
-        <span class="r-step">STEP 1 // IMMEDIATE REACTION</span>
-        <span class="r-choice">Chose: ${gameState.firstChoice}</span>
-        <p class="r-desc">${
-          gameState.firstChoice === "HOSPITAL"
-            ? "Protected patients, but stranded thousands underground."
-            : "Evacuated commuters, but hospital ICUs were put on emergency countdown."
-        }</p>
-      </div>
-      <div class="recap-card">
-        <span class="r-step">STEP 2 // EXPLORATION & CLUES</span>
-        <span class="r-choice">Sectors Discovered: ${
-          (gameState.visited.hospital ? 1 : 0) +
-          (gameState.visited.metro ? 1 : 0) +
-          (gameState.visited.powerStation ? 1 : 0)
-        } / 3</span>
-        <p class="r-desc">Hospital (35%), Metro (30%), Grid Buffer (35%).</p>
-      </div>
-      <div class="recap-card">
-        <span class="r-step">STEP 3 // FINAL ALLOCATION</span>
-        <span class="r-choice">H: ${gameState.finalAllocation.hospital}% | G: ${gameState.finalAllocation.grid}% | M: ${gameState.finalAllocation.metro}%</span>
-        <p class="r-desc">Outcome: ${gameState.ending}</p>
-      </div>
-    `;
+    else {
 
-    // Line-by-line Kural Reveal
-    setTimeout(() => els.kLine1.classList.add("revealed"), 400);
-    setTimeout(() => els.kLine2.classList.add("revealed"), 1100);
-    setTimeout(() => els.kLine3.classList.add("revealed"), 1800);
-    setTimeout(() => els.kLine4.classList.add("revealed"), 2500);
+      GS.ending =
+        "THINKER";
+    }
+
+
+    openOverlook();
   }
 
-  // ==========================================================================
-  // 13. RESET & REPLAY
-  // ==========================================================================
+
+  // ============================================================
+  // 20. OPEN SCENIC OVERLOOK
+  // ============================================================
+
+  function openOverlook() {
+
+    switchScene(
+      "OVERLOOK"
+    );
+
+
+    /*
+     * Calculate actual scene dimensions.
+     * This fixes the fourth relic problem.
+     */
+
+    updateScenicBounds();
+
+
+    const {
+      width,
+      height
+    } = getEndingSize();
+
+
+    // Start near the middle.
+    GS.scenic.x =
+      width * 0.48;
+
+    GS.scenic.y =
+      height * 0.58;
+
+
+    // Clamp starting position.
+    GS.scenic.x =
+      Math.max(
+        GS.scenicBounds.minX,
+        Math.min(
+          GS.scenicBounds.maxX,
+          GS.scenic.x
+        )
+      );
+
+
+    GS.scenic.y =
+      Math.max(
+        GS.scenicBounds.minY,
+        Math.min(
+          GS.scenicBounds.maxY,
+          GS.scenic.y
+        )
+      );
+
+
+    if (el.scenicPlayer) {
+
+      el.scenicPlayer.style.left =
+        `${GS.scenic.x}px`;
+
+      el.scenicPlayer.style.top =
+        `${GS.scenic.y}px`;
+    }
+
+
+    if (
+      GS.ending === "THINKER"
+    ) {
+
+      el.scenicGoal.textContent =
+        "Walk the hilltop. Discover all 4 fragments of ancient wisdom (0/4).";
+
+      el.cityPanorama.style.opacity =
+        "1";
+
+    } else {
+
+      el.scenicGoal.textContent =
+        "Walk the hilltop. Discover the 4 fragments to understand what happened (0/4).";
+
+      el.cityPanorama.style.opacity =
+        "0.45";
+    }
+
+
+    // Immediately calculate nearest relic.
+    checkScenicProximity();
+  }
+
+
+  // ============================================================
+  // 21. RELIC PROGRESS
+  // ============================================================
+
+  let kuralShown = false;
+
+
+  function checkRelics() {
+
+    const count =
+      Object.values(
+        GS.relics
+      ).filter(Boolean).length;
+
+
+    if (el.scenicGoal) {
+
+      el.scenicGoal.textContent =
+        count < 4
+
+          ? `Fragments discovered: (${count}/4). Explore the hilltop!`
+
+          : "All four fragments discovered.";
+    }
+
+
+    if (
+      count === 4 &&
+      !kuralShown
+    ) {
+
+      kuralShown = true;
+
+
+      setTimeout(() => {
+
+        sfx.triumph();
+
+        el.kuralCelestial?.classList.remove(
+          "hidden"
+        );
+
+      }, 700);
+    }
+  }
+
+
+  // ============================================================
+  // 22. WALK BACK TO CITY
+  // ============================================================
+
+  function walkBackToCity() {
+
+    sfx.interact();
+
+
+    el.kuralCelestial?.classList.add(
+      "hidden"
+    );
+
+
+    switchScene(
+      "CITY"
+    );
+
+
+    if (
+      GS.ending === "THINKER"
+    ) {
+
+      el.metroStatusPill.textContent =
+        "ONLINE (REDUCED)";
+
+      el.metroStatusPill.style.background =
+        "var(--c-green-t)";
+
+      el.metroStatusPill.style.color =
+        "var(--c-emerald)";
+
+
+      el.hospStatusPill.textContent =
+        "ICU SECURED";
+
+      el.hospStatusPill.style.background =
+        "var(--c-green-t)";
+
+      el.hospStatusPill.style.color =
+        "var(--c-emerald)";
+
+
+      el.cableSubToMetro?.setAttribute(
+        "class",
+        "cable-line cable-powered"
+      );
+
+      el.cableSubToHosp?.setAttribute(
+        "class",
+        "cable-line cable-powered"
+      );
+
+
+      el.celebRays?.classList.remove(
+        "hidden"
+      );
+
+
+      showBanner(
+        "🌟",
+        "THE CITY SURVIVED — Balanced forethought protected Chennai 2047."
+      );
+
+
+      setObjective(
+        "You have saved Chennai. Walk freely among the blooming streets."
+      );
+    }
+
+
+    else if (
+      GS.ending === "SURVIVOR"
+    ) {
+
+      showBanner(
+        "⚖️",
+        "Strained equilibrium — the city avoided collapse, but barely."
+      );
+
+
+      setObjective(
+        "Managed survival. Some areas remain under brownout."
+      );
+    }
+
+
+    else {
+
+      showBanner(
+        "⚠️",
+        "Cascade damage — one sector survived, another collapsed."
+      );
+
+
+      setObjective(
+        "The city paid the price for reactive, unbalanced decisions."
+      );
+    }
+  }
+
+
+  // ============================================================
+  // 23. RESET GAME
+  // ============================================================
+
   function resetGame() {
+
     sfx.interact();
 
-    gameState.scene = "INTRO";
-    gameState.player.x = 460;
-    gameState.player.y = 270;
-    gameState.firstChoice = null;
-    gameState.blackoutTriggered = false;
-    gameState.dialogueCount = 0;
-    gameState.visited = { teaShop: false, student: false, hospital: false, powerStation: false };
-    gameState.finalAllocation = { hospital: 35, grid: 35, metro: 30 };
-    gameState.ending = null;
 
-    // Reset Elements
-    els.playerActor.style.left = `${gameState.player.x}px`;
-    els.playerActor.style.top = `${gameState.player.y}px`;
+    GS.scene = "INTRO";
 
-    els.fallenDevice.classList.add("hidden");
-    els.worldBanner.classList.add("hidden");
-    els.dialogueTray.classList.add("hidden");
-    els.modalDevice.classList.add("hidden");
-    els.modalAllocation.classList.add("hidden");
 
-    // Reset Street Lights & Signals
-    [els.pool1, els.pool2, els.pool3, els.pool4].forEach((pool) => pool.classList.remove("darkened"));
-    els.metroStatusPill.textContent = "ONLINE";
-    els.metroStatusPill.style.backgroundColor = "";
-    els.metroStatusPill.style.color = "";
-    els.metroGateLight.style.backgroundColor = "var(--c-cyan)";
+    GS.player.x = 460;
+    GS.player.y = 265;
 
-    els.hospStatusPill.textContent = "ONLINE";
-    els.hospStatusPill.style.backgroundColor = "";
-    els.hospStatusPill.style.color = "";
-    els.hospCross.classList.remove("beacon-flashing");
-    [els.hw1, els.hw2, els.hw3].forEach((w) => w.classList.remove("dark"));
 
-    els.cableSubToMetro.setAttribute("class", "cable-line cable-live");
-    els.cableSubToHosp.setAttribute("class", "cable-line cable-live");
+    GS.scenic.x = 0;
+    GS.scenic.y = 0;
 
-    [els.kLine1, els.kLine2, els.kLine3, els.kLine4].forEach((k) => k.classList.remove("revealed"));
 
-    updateObjective("Explore the street. Talk to the locals.");
-    switchScene("INTRO");
+    GS.blackout = false;
+    GS.firstChoice = null;
+
+
+    GS.talkCount = 0;
+
+
+    GS.visited = {
+      muthu: false,
+      karthik: false,
+      priya: false,
+      kavitha: false
+    };
+
+
+    GS.post = {
+      priya: false,
+      karthik: false,
+      kavitha: false
+    };
+
+
+    GS.finalAlloc = {
+      h: 35,
+      g: 35,
+      m: 30
+    };
+
+
+    GS.ending = null;
+
+
+    GS.relics = {
+      leaf: false,
+      light: false,
+      tree: false,
+      horizon: false
+    };
+
+
+    GS.activeNPC = null;
+    GS.activeRelic = null;
+
+
+    GS.dlgQueue = [];
+    GS.dlgIdx = 0;
+    GS.dlgTyping = false;
+    GS.dlgOnEnd = null;
+
+
+    kuralShown = false;
+
+
+    if (GS.dlgTimer) {
+
+      clearInterval(
+        GS.dlgTimer
+      );
+
+      GS.dlgTimer = null;
+    }
+
+
+    // ----------------------------------------------------------
+    // Reset player
+    // ----------------------------------------------------------
+
+    el.playerActor.style.left =
+      `${GS.player.x}px`;
+
+    el.playerActor.style.top =
+      `${GS.player.y}px`;
+
+
+    el.scenicPlayer.style.left =
+      "0px";
+
+    el.scenicPlayer.style.top =
+      "0px";
+
+
+    // ----------------------------------------------------------
+    // Hide overlays
+    // ----------------------------------------------------------
+
+    el.fallenDevice?.classList.add(
+      "hidden"
+    );
+
+    el.worldBanner?.classList.add(
+      "hidden"
+    );
+
+    el.dialogueTray?.classList.add(
+      "hidden"
+    );
+
+    el.dialogueTrayShared?.classList.add(
+      "hidden"
+    );
+
+    el.modalDevice?.classList.add(
+      "hidden"
+    );
+
+    el.modalAllocation?.classList.add(
+      "hidden"
+    );
+
+    el.kuralCelestial?.classList.add(
+      "hidden"
+    );
+
+    el.celebRays?.classList.add(
+      "hidden"
+    );
+
+    el.contextBubble?.classList.add(
+      "hidden"
+    );
+
+    el.relicBubble?.classList.add(
+      "hidden"
+    );
+
+
+    // ----------------------------------------------------------
+    // Reset relic tags
+    // ----------------------------------------------------------
+
+    [
+      "tagLeaf",
+      "tagLight",
+      "tagTree",
+      "tagHorizon"
+    ].forEach(id => {
+
+      const tag = $(id);
+
+      if (!tag) return;
+
+      tag.textContent =
+        "DISCOVER";
+
+      tag.classList.remove(
+        "found"
+      );
+    });
+
+
+    // ----------------------------------------------------------
+    // Reset lights
+    // ----------------------------------------------------------
+
+    [
+      el.pool1,
+      el.pool2,
+      el.pool3,
+      el.pool4
+    ].forEach(pool => {
+
+      pool?.classList.remove(
+        "darkened"
+      );
+    });
+
+
+    // ----------------------------------------------------------
+    // Reset metro
+    // ----------------------------------------------------------
+
+    if (el.metroStatusPill) {
+
+      el.metroStatusPill.textContent =
+        "ONLINE";
+
+      el.metroStatusPill.style.background =
+        "";
+
+      el.metroStatusPill.style.color =
+        "";
+    }
+
+
+    if (el.metroGateLight) {
+
+      el.metroGateLight.style.background =
+        "var(--c-cyan)";
+    }
+
+
+    // ----------------------------------------------------------
+    // Reset hospital
+    // ----------------------------------------------------------
+
+    if (el.hospStatusPill) {
+
+      el.hospStatusPill.textContent =
+        "NORMAL";
+
+      el.hospStatusPill.style.background =
+        "";
+
+      el.hospStatusPill.style.color =
+        "";
+    }
+
+
+    el.hospCross?.classList.remove(
+      "beacon-flashing"
+    );
+
+
+    [
+      el.hw1,
+      el.hw2,
+      el.hw3
+    ].forEach(w => {
+
+      w?.classList.remove(
+        "dark"
+      );
+    });
+
+
+    // ----------------------------------------------------------
+    // Reset cables
+    // ----------------------------------------------------------
+
+    el.cableSubToMetro?.setAttribute(
+      "class",
+      "cable-line cable-live"
+    );
+
+    el.cableSubToHosp?.setAttribute(
+      "class",
+      "cable-line cable-live"
+    );
+
+
+    // ----------------------------------------------------------
+    // Reset allocation sliders
+    // ----------------------------------------------------------
+
+    if (el.sliderHosp) {
+      el.sliderHosp.value = 35;
+    }
+
+    if (el.sliderGrid) {
+      el.sliderGrid.value = 35;
+    }
+
+    if (el.sliderMetro) {
+      el.sliderMetro.value = 30;
+    }
+
+
+    syncAllocUI();
+
+
+    // ----------------------------------------------------------
+    // Reset objective
+    // ----------------------------------------------------------
+
+    setObjective(
+      "Explore the sunny street. Talk to the people around you."
+    );
+
+
+    switchScene(
+      "INTRO"
+    );
   }
 
-  // ==========================================================================
-  // 14. EVENT LISTENERS & KEYBOARD / TOUCH CONTROLS
-  // ==========================================================================
-  // Sound Toggle
-  els.soundToggle.addEventListener("click", () => {
-    gameState.audioEnabled = !gameState.audioEnabled;
-    if (gameState.audioEnabled) {
-      els.soundIcon.textContent = "🔊";
-      els.soundText.textContent = "AUDIO ON";
-      els.soundToggle.classList.remove("muted");
-      initAudio();
-      sfx.blip();
-    } else {
-      els.soundIcon.textContent = "🔇";
-      els.soundText.textContent = "AUDIO OFF";
-      els.soundToggle.classList.add("muted");
+
+  // ============================================================
+  // 24. SOUND BUTTON
+  // ============================================================
+
+  if (el.soundToggle) {
+
+    el.soundToggle.addEventListener(
+      "click",
+      () => {
+
+        GS.audioOn =
+          !GS.audioOn;
+
+
+        if (GS.audioOn) {
+
+          if (el.soundIcon) {
+            el.soundIcon.textContent =
+              "🔊";
+          }
+
+          if (el.soundText) {
+            el.soundText.textContent =
+              "SOUND";
+          }
+
+          el.soundToggle.classList.remove(
+            "muted"
+          );
+
+
+          initAudio();
+          sfx.blip();
+
+        } else {
+
+          if (el.soundIcon) {
+            el.soundIcon.textContent =
+              "🔇";
+          }
+
+          if (el.soundText) {
+            el.soundText.textContent =
+              "MUTED";
+          }
+
+          el.soundToggle.classList.add(
+            "muted"
+          );
+        }
+      }
+    );
+  }
+
+
+  // ============================================================
+  // 25. START GAME
+  // ============================================================
+
+  if (el.btnStartGame) {
+
+    el.btnStartGame.addEventListener(
+      "click",
+      () => {
+
+        initAudio();
+
+        sfx.interact();
+
+        switchScene(
+          "CITY"
+        );
+      }
+    );
+  }
+
+
+  // ============================================================
+  // 26. DIALOGUE BUTTONS
+  // ============================================================
+
+  el.btnDialogueNext?.addEventListener(
+    "click",
+    advanceDlg
+  );
+
+
+  el.btnDialogueNextS?.addEventListener(
+    "click",
+    advanceDlg
+  );
+
+
+  // Clicking dialogue tray advances it.
+  el.dialogueTray?.addEventListener(
+    "click",
+    () => {
+      advanceDlg();
     }
-  });
+  );
 
-  // Intro Button
-  els.btnStartGame.addEventListener("click", () => {
-    initAudio();
-    sfx.interact();
-    switchScene("CITY");
-  });
 
-  // Dialogue Controls
-  els.btnDialogueNext.addEventListener("click", advanceDialogue);
-  els.dialogueTray.addEventListener("click", advanceDialogue);
+  el.dialogueTrayShared?.addEventListener(
+    "click",
+    () => {
+      advanceDlg();
+    }
+  );
 
-  // Device Modal Selection
-  els.btnChooseHosp.addEventListener("click", () => selectFirstChoice("HOSPITAL"));
-  els.btnChooseMetro.addEventListener("click", () => selectFirstChoice("METRO"));
 
-  // Sliders
-  els.sliderHosp.addEventListener("input", () => handleSliderChange("hosp"));
-  els.sliderGrid.addEventListener("input", () => handleSliderChange("grid"));
-  els.sliderMetro.addEventListener("input", () => handleSliderChange("metro"));
+  // ============================================================
+  // 27. FIRST DECISION BUTTONS
+  // ============================================================
 
-  // Final Commit
-  els.btnCommitAllocation.addEventListener("click", commitFinalAllocation);
+  el.btnChooseHosp?.addEventListener(
+    "click",
+    () => {
+      makeFirstChoice(
+        "HOSPITAL"
+      );
+    }
+  );
 
-  // Replay
-  els.btnReplay.addEventListener("click", resetGame);
 
-  // Keyboard Movement & Actions
-  window.addEventListener("keydown", (e) => {
-    const k = e.key.toLowerCase();
+  el.btnChooseMetro?.addEventListener(
+    "click",
+    () => {
+      makeFirstChoice(
+        "METRO"
+      );
+    }
+  );
 
-    if (k === "w" || k === "arrowup") gameState.keys.up = true;
-    if (k === "s" || k === "arrowdown") gameState.keys.down = true;
-    if (k === "a" || k === "arrowleft") gameState.keys.left = true;
-    if (k === "d" || k === "arrowright") gameState.keys.right = true;
 
-    if (k === "e") handleInteraction();
+  // ============================================================
+  // 28. ALLOCATION SLIDERS
+  // ============================================================
 
-    if (e.key === " " || k === "enter") {
-      if (gameState.scene === "DIALOGUE") {
-        e.preventDefault();
-        advanceDialogue();
-      } else if (gameState.scene === "INTRO") {
-        els.btnStartGame.click();
+  el.sliderHosp?.addEventListener(
+    "input",
+    () => {
+      handleSlider("h");
+    }
+  );
+
+
+  el.sliderGrid?.addEventListener(
+    "input",
+    () => {
+      handleSlider("g");
+    }
+  );
+
+
+  el.sliderMetro?.addEventListener(
+    "input",
+    () => {
+      handleSlider("m");
+    }
+  );
+
+
+  el.btnCommitAllocation?.addEventListener(
+    "click",
+    commitAllocation
+  );
+
+
+  // ============================================================
+  // 29. ENDING PORTALS
+  // ============================================================
+
+  el.portalWalkCity?.addEventListener(
+    "click",
+    walkBackToCity
+  );
+
+
+  el.portalReplayNode?.addEventListener(
+    "click",
+    resetGame
+  );
+
+
+  // ============================================================
+  // 30. KEYBOARD MOVEMENT
+  // ============================================================
+
+  window.addEventListener(
+    "keydown",
+    event => {
+
+      const key =
+        event.key.toLowerCase();
+
+
+      if (
+        key === "w" ||
+        key === "arrowup"
+      ) {
+
+        event.preventDefault();
+
+        GS.keys.up = true;
+      }
+
+
+      if (
+        key === "s" ||
+        key === "arrowdown"
+      ) {
+
+        event.preventDefault();
+
+        GS.keys.down = true;
+      }
+
+
+      if (
+        key === "a" ||
+        key === "arrowleft"
+      ) {
+
+        event.preventDefault();
+
+        GS.keys.left = true;
+      }
+
+
+      if (
+        key === "d" ||
+        key === "arrowright"
+      ) {
+
+        event.preventDefault();
+
+        GS.keys.right = true;
+      }
+
+
+      // E = interact.
+      if (
+        key === "e"
+      ) {
+
+        event.preventDefault();
+
+        interact();
+
+        return;
+      }
+
+
+      // SPACE / ENTER
+      if (
+        key === " " ||
+        key === "enter"
+      ) {
+
+        event.preventDefault();
+
+
+        if (
+          GS.scene === "DIALOGUE"
+        ) {
+
+          advanceDlg();
+
+        }
+
+        else if (
+          GS.scene === "INTRO"
+        ) {
+
+          el.btnStartGame?.click();
+
+        }
+
+        else {
+
+          interact();
+        }
       }
     }
-  });
+  );
 
-  window.addEventListener("keyup", (e) => {
-    const k = e.key.toLowerCase();
-    if (k === "w" || k === "arrowup") gameState.keys.up = false;
-    if (k === "s" || k === "arrowdown") gameState.keys.down = false;
-    if (k === "a" || k === "arrowleft") gameState.keys.left = false;
-    if (k === "d" || k === "arrowright") gameState.keys.right = false;
-  });
 
-  // Mobile D-Pad Virtual Buttons
-  const bindDpad = (btn, dir) => {
-    const press = (e) => {
-      e.preventDefault();
-      gameState.keys[dir] = true;
+  // ============================================================
+  // 31. KEYBOARD RELEASE
+  // ============================================================
+
+  window.addEventListener(
+    "keyup",
+    event => {
+
+      const key =
+        event.key.toLowerCase();
+
+
+      if (
+        key === "w" ||
+        key === "arrowup"
+      ) {
+
+        GS.keys.up = false;
+      }
+
+
+      if (
+        key === "s" ||
+        key === "arrowdown"
+      ) {
+
+        GS.keys.down = false;
+      }
+
+
+      if (
+        key === "a" ||
+        key === "arrowleft"
+      ) {
+
+        GS.keys.left = false;
+      }
+
+
+      if (
+        key === "d" ||
+        key === "arrowright"
+      ) {
+
+        GS.keys.right = false;
+      }
+    }
+  );
+
+
+  // ============================================================
+  // 32. MOBILE D-PAD
+  // ============================================================
+
+  function bindDpad(
+    button,
+    direction
+  ) {
+
+    if (!button) {
+      return;
+    }
+
+
+    const press = event => {
+
+      event.preventDefault();
+
+      GS.keys[direction] = true;
     };
-    const release = (e) => {
-      e.preventDefault();
-      gameState.keys[dir] = false;
+
+
+    const release = event => {
+
+      event.preventDefault();
+
+      GS.keys[direction] = false;
     };
-    btn.addEventListener("touchstart", press, { passive: false });
-    btn.addEventListener("touchend", release, { passive: false });
-    btn.addEventListener("mousedown", press);
-    btn.addEventListener("mouseup", release);
-    btn.addEventListener("mouseleave", release);
-  };
 
-  bindDpad(els.dpadUp, "up");
-  bindDpad(els.dpadDown, "down");
-  bindDpad(els.dpadLeft, "left");
-  bindDpad(els.dpadRight, "right");
 
-  els.mobileInteractBtn.addEventListener("click", handleInteraction);
-  els.mobileInteractBtn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    handleInteraction();
-  }, { passive: false });
+    button.addEventListener(
+      "touchstart",
+      press,
+      {
+        passive: false
+      }
+    );
 
-  // Start Game Loop
-  requestAnimationFrame(gameLoop);
+
+    button.addEventListener(
+      "touchend",
+      release,
+      {
+        passive: false
+      }
+    );
+
+
+    button.addEventListener(
+      "touchcancel",
+      release,
+      {
+        passive: false
+      }
+    );
+
+
+    button.addEventListener(
+      "mousedown",
+      press
+    );
+
+
+    button.addEventListener(
+      "mouseup",
+      release
+    );
+
+
+    button.addEventListener(
+      "mouseleave",
+      release
+    );
+  }
+
+
+  // City D-pad
+  bindDpad(
+    el.dpadUp,
+    "up"
+  );
+
+  bindDpad(
+    el.dpadDown,
+    "down"
+  );
+
+  bindDpad(
+    el.dpadLeft,
+    "left"
+  );
+
+  bindDpad(
+    el.dpadRight,
+    "right"
+  );
+
+
+  // Ending D-pad
+  bindDpad(
+    el.dpadUpE,
+    "up"
+  );
+
+  bindDpad(
+    el.dpadDownE,
+    "down"
+  );
+
+  bindDpad(
+    el.dpadLeftE,
+    "left"
+  );
+
+  bindDpad(
+    el.dpadRightE,
+    "right"
+  );
+
+
+  // ============================================================
+  // 33. MOBILE INTERACT
+  // ============================================================
+
+  let mobileInteractLock = false;
+
+
+  function mobileInteract() {
+
+    if (
+      mobileInteractLock
+    ) {
+      return;
+    }
+
+
+    mobileInteractLock = true;
+
+    interact();
+
+
+    setTimeout(() => {
+
+      mobileInteractLock =
+        false;
+
+    }, 120);
+  }
+
+
+  el.mobileInteractBtn?.addEventListener(
+    "click",
+    mobileInteract
+  );
+
+
+  el.mobileInteractBtnE?.addEventListener(
+    "click",
+    mobileInteract
+  );
+
+
+  el.mobileInteractBtn?.addEventListener(
+    "touchstart",
+    event => {
+
+      event.preventDefault();
+
+      mobileInteract();
+
+    },
+    {
+      passive: false
+    }
+  );
+
+
+  el.mobileInteractBtnE?.addEventListener(
+    "touchstart",
+    event => {
+
+      event.preventDefault();
+
+      mobileInteract();
+
+    },
+    {
+      passive: false
+    }
+  );
+
+
+  // ============================================================
+  // 34. RESIZE
+  // ============================================================
+
+  window.addEventListener(
+    "resize",
+    () => {
+
+      if (
+        GS.scene !== "OVERLOOK"
+      ) {
+        return;
+      }
+
+
+      updateScenicBounds();
+
+
+      // Keep player inside new bounds.
+      GS.scenic.x =
+        Math.max(
+          GS.scenicBounds.minX,
+          Math.min(
+            GS.scenicBounds.maxX,
+            GS.scenic.x
+          )
+        );
+
+
+      GS.scenic.y =
+        Math.max(
+          GS.scenicBounds.minY,
+          Math.min(
+            GS.scenicBounds.maxY,
+            GS.scenic.y
+          )
+        );
+
+
+      if (el.scenicPlayer) {
+
+        el.scenicPlayer.style.left =
+          `${GS.scenic.x}px`;
+
+        el.scenicPlayer.style.top =
+          `${GS.scenic.y}px`;
+      }
+
+
+      checkScenicProximity();
+    }
+  );
+
+
+  // ============================================================
+  // 35. INITIALIZE
+  // ============================================================
+
+  syncAllocUI();
+
+  switchScene(
+    "INTRO"
+  );
+
+
+  // Start game loop.
+  requestAnimationFrame(
+    gameLoop
+  );
+
 });

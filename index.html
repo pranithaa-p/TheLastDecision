@@ -3,512 +3,589 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>THE LAST DECISION — Chennai 2047 | An Interactive Story of Thirukkural 461</title>
-  <meta name="description" content="A 2-3 minute playable indie story game set in futuristic Chennai exploring Thirukkural 461. Every decision changes the living world.">
+  <title>THE LAST DECISION — Thirukkural 461 | A Tamil Story Game</title>
+  <meta name="description" content="Walk through sunny Chennai 2047. Speak to citizens. Make decisions. Experience Thirukkural 461.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Noto+Serif+Tamil:wght@400;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Tamil:wght@600;700;800&family=Outfit:wght@500;600;700;800;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- CORNER AUDIO TOGGLE -->
-  <button id="soundToggle" class="sound-toggle" type="button" aria-label="Toggle Sound Effects">
+  <!-- SOUND TOGGLE -->
+  <button id="soundToggle" class="sound-toggle" type="button" aria-label="Toggle Sound">
     <span id="soundIcon">🔊</span>
-    <span id="soundText">AUDIO ON</span>
+    <span id="soundText">SOUND</span>
   </button>
 
-  <!-- GAME STAGE -->
-  <div id="gameApp" class="game-app">
+  <!-- =====================================================================
+       SCENE 1: INTRO
+  ====================================================================== -->
+  <div id="sceneIntro" class="scene active">
+    <div class="intro-sky">
+      <div class="i-sun"></div>
+      <div class="i-cloud c1"><span></span><span></span><span></span></div>
+      <div class="i-cloud c2"><span></span><span></span><span></span></div>
+    </div>
+    <div class="intro-hills">
+      <div class="ih ih1"></div>
+      <div class="ih ih2"></div>
+      <div class="ih ih3"></div>
+    </div>
+    <div class="intro-card">
+      <div class="ic-kural-badge">THIRUKKURAL · 461</div>
+      <h1 class="ic-title">THE LAST<br>DECISION</h1>
+      <p class="ic-hook">
+        Sunny Chennai, 2047. A power surge threatens the city.<br>
+        Walk the streets. Listen. Then choose wisely.
+      </p>
+      <div class="ic-cast">
+        <div class="cast-char">
+          <div class="cc-fig orange-fig"></div>
+          <div class="cc-name">YOU</div>
+        </div>
+        <div class="cast-char">
+          <div class="cc-fig tea-fig"></div>
+          <div class="cc-name">MUTHU</div>
+        </div>
+        <div class="cast-char">
+          <div class="cc-fig doc-fig"></div>
+          <div class="cc-name">DR. PRIYA</div>
+        </div>
+        <div class="cast-char">
+          <div class="cc-fig eng-fig"></div>
+          <div class="cc-name">KAVITHA</div>
+        </div>
+      </div>
+      <button id="btnStartGame" class="btn btn-start" type="button">
+        ▶ START ADVENTURE
+      </button>
+      <div class="ic-controls">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrow Keys to walk &nbsp;•&nbsp; <kbd>E</kbd> to interact
+      </div>
+    </div>
+  </div>
 
-    <!-- 1. INTRO CINEMATIC SCENE -->
-    <section id="sceneIntro" class="game-scene scene-intro active">
-      <div class="intro-card">
-        <div class="intro-tag">CHENNAI // 2047</div>
-        <div class="intro-time">23:47 IST</div>
-        <p class="intro-hook">The city has 18 minutes of emergency power left.</p>
-        <div class="intro-illustration">
-          <div class="intro-skyline-silhouette">
-            <span class="sky-tower st-1"></span>
-            <span class="sky-tower st-2"></span>
-            <span class="sky-tower st-3"></span>
-            <span class="sky-metro-bridge"></span>
+  <!-- =====================================================================
+       SCENE 2: CITY — The Playable World
+  ====================================================================== -->
+  <div id="sceneCity" class="scene">
+
+    <!-- HUD: Objective Pill -->
+    <div class="hud-pill" id="objectivePill">
+      <span class="pill-icon">☀️</span>
+      <span id="objectiveText">Explore the sunny street. Talk to the people around you.</span>
+    </div>
+
+    <!-- WORLD BANNER (event notifications) -->
+    <div class="world-banner hidden" id="worldBanner">
+      <span id="bannerIcon">⚡</span>
+      <span id="bannerText">Event text</span>
+    </div>
+
+    <!-- ── SKY LAYER ─────────────────────────────────────────────── -->
+    <div class="sky-layer">
+      <div class="sky-sun"></div>
+      <div class="sky-cloud sc1"><span></span><span></span><span></span></div>
+      <div class="sky-cloud sc2"><span></span><span></span><span></span></div>
+      <div class="sky-cloud sc3"><span></span><span></span></div>
+      <div class="sky-birds">
+        <span class="bird">‹</span><span class="bird">‹</span><span class="bird">‹</span>
+      </div>
+    </div>
+
+    <!-- ── MOUNTAINS ──────────────────────────────────────────────── -->
+    <div class="mtn-layer">
+      <div class="mtn m1"></div>
+      <div class="mtn m2"></div>
+      <div class="mtn m3"></div>
+      <div class="mtn m4"></div>
+      <div class="hill h1"></div>
+      <div class="hill h2"></div>
+      <div class="hill h3"></div>
+    </div>
+
+    <!-- ── METRO FLYOVER ─────────────────────────────────────────── -->
+    <div class="metro-rail" id="metroRail">
+      <div class="rail-beam"></div>
+      <div class="rail-pillars">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="rail-train" id="cartoonTrain">
+        <div class="tc tc-engine">
+          <span class="tw"></span><span class="tw"></span>
+          <span class="tb">M</span>
+        </div>
+        <div class="tc tc-mid"><span class="tw"></span><span class="tw"></span></div>
+        <div class="tc tc-tail"><span class="tw"></span></div>
+      </div>
+    </div>
+
+    <!-- ── PLAYABLE STAGE ─────────────────────────────────────────── -->
+    <div class="stage" id="playStage">
+
+      <!-- River -->
+      <div class="river">
+        <div class="river-inner">
+          <div class="rwave rw1"></div>
+          <div class="rwave rw2"></div>
+          <div class="rwave rw3"></div>
+          <span class="lotus" style="left:22%;top:35%">🪷</span>
+          <span class="lotus" style="left:72%;top:25%">🪷</span>
+        </div>
+        <div class="bridge"></div>
+      </div>
+
+      <!-- ── BUILDINGS ─────────────────────────────── -->
+
+      <!-- Metro Station -->
+      <div class="bldg bldg-metro" style="left:30px;top:95px">
+        <div class="metro-roof">
+          <span class="solar"></span><span class="solar"></span><span class="solar"></span>
+        </div>
+        <div class="metro-sign">
+          <span>🚇</span>
+          <span class="ms-text">CHENNAI METRO</span>
+          <span class="ms-pill" id="metroStatusPill">ONLINE</span>
+        </div>
+        <div class="metro-doors">
+          <div class="door-l"></div>
+          <div class="door-r"></div>
+        </div>
+        <div class="metro-gate-light" id="metroGateLight"></div>
+        <div class="bldg-plants">🪴 🌺 🪴</div>
+      </div>
+
+      <!-- Tea Stall -->
+      <div class="bldg bldg-tea" style="left:275px;top:115px">
+        <div class="tea-awning">
+          <span class="ts ts-r"></span><span class="ts ts-y"></span>
+          <span class="ts ts-r"></span><span class="ts ts-y"></span>
+          <span class="ts ts-r"></span>
+        </div>
+        <div class="tea-sign">☕ MUTHU TEA STALL</div>
+        <div class="tea-counter">
+          <div class="kettle">
+            <span class="steam">💨</span>🫖
+          </div>
+          <span>🥛</span>
+        </div>
+        <div class="bldg-plants">🌿 🌻</div>
+      </div>
+
+      <!-- Power Sub-Station -->
+      <div class="bldg bldg-power" style="left:400px;top:355px">
+        <div class="power-sign">
+          <span>⚡</span>
+          <span class="ps-text">TNEB 2047</span>
+          <span class="ps-pill" id="powerStatusPill">LIVE</span>
+        </div>
+        <div class="power-coils">
+          <span class="coil" id="coilA"></span>
+          <span class="coil" id="coilB"></span>
+        </div>
+        <div class="bldg-plants">🌿 🌱 🌿</div>
+      </div>
+
+      <!-- Hospital -->
+      <div class="bldg bldg-hosp" style="left:720px;top:95px">
+        <div class="hosp-roof">
+          <span class="hosp-cross" id="hospCross">+</span>
+        </div>
+        <div class="hosp-sign">
+          <span class="hs-text">REGIONAL HOSPITAL</span>
+          <span class="hs-pill" id="hospStatusPill">NORMAL</span>
+        </div>
+        <div class="hosp-windows">
+          <div class="hw" id="hw1">ICU</div>
+          <div class="hw" id="hw2">TRAUMA</div>
+          <div class="hw" id="hw3">CARE</div>
+        </div>
+        <div class="hosp-entry">
+          <div class="ambulance" id="ambulanceVan">
+            <span>+</span> AMBULANCE
           </div>
         </div>
-        <button id="btnStartGame" class="btn btn-primary btn-pulse" type="button">
-          WALK THE STREETS →
+        <div class="hosp-garden">⛲ 🌷 🌺 🌻</div>
+      </div>
+
+      <!-- ── SVG POWER CABLES ──────────────────────────────── -->
+      <svg class="cables-svg" id="cablesSvg" viewBox="0 0 1000 500" preserveAspectRatio="none">
+        <line id="cableSubToMetro" class="cable-line cable-live" x1="465" y1="390" x2="170" y2="180"/>
+        <line id="cableSubToHosp"  class="cable-line cable-live" x1="480" y1="390" x2="780" y2="180"/>
+        <line id="cableSubToTea"   class="cable-line cable-live" x1="460" y1="375" x2="350" y2="200"/>
+      </svg>
+
+      <!-- ── STREET LIGHTS ─────────────────────────────── -->
+      <div class="lamp-pool" id="pool1" style="left:120px;top:265px"></div>
+      <div class="lamp-pool" id="pool2" style="left:360px;top:265px"></div>
+      <div class="lamp-pool" id="pool3" style="left:620px;top:265px"></div>
+      <div class="lamp-pool" id="pool4" style="left:860px;top:265px"></div>
+
+      <!-- ── NATURE ──────────────────────────────────── -->
+      <div class="nature-layer">
+        <!-- Trees -->
+        <div class="tree" style="left:0px;top:100px"><div class="trunk"></div><div class="canopy c-green"></div></div>
+        <div class="tree" style="left:210px;top:90px"><div class="palm-trunk"></div><div class="palm-top">🌴</div></div>
+        <div class="tree" style="left:466px;top:95px"><div class="trunk"></div><div class="canopy c-lime"></div></div>
+        <div class="tree" style="left:672px;top:88px"><div class="palm-trunk"></div><div class="palm-top">🌴</div></div>
+        <div class="tree" style="left:950px;top:100px"><div class="trunk"></div><div class="canopy c-green"></div></div>
+        <!-- Flower Patches -->
+        <div class="flowers" style="left:175px;top:238px">🌺 🌷 🌸</div>
+        <div class="flowers" style="left:440px;top:238px">🌻 🌼 🌷</div>
+        <div class="flowers" style="left:698px;top:238px">🌸 🌺 🌻</div>
+        <div class="flowers" style="left:345px;top:385px">🌿 🌷 🌿</div>
+        <div class="flowers" style="left:658px;top:385px">🌿 🌻 🌿</div>
+        <!-- Butterflies -->
+        <span class="butterfly" style="left:230px;top:215px">🦋</span>
+        <span class="butterfly bf2" style="left:670px;top:208px">🦋</span>
+      </div>
+
+      <!-- ── ROAD ────────────────────────────────────── -->
+      <div class="road">
+        <div class="sidewalk sw-top"></div>
+        <div class="road-body">
+          <div class="lane-stripe"></div>
+          <div class="crosswalk" style="left:230px"></div>
+          <div class="crosswalk" style="left:688px"></div>
+          <!-- Parked auto-rickshaw -->
+          <div class="auto-rick" style="left:475px">
+            <div class="auto-top"></div>
+            <div class="auto-front"></div>
+            <div class="auto-wh wh-f"></div>
+            <div class="auto-wh wh-r"></div>
+            <span class="auto-plate">CHENNAI 2047</span>
+          </div>
+        </div>
+        <div class="sidewalk sw-bot"></div>
+      </div>
+
+      <!-- ── NPCs ─────────────────────────────────────────── -->
+
+      <!-- Tea Owner: Muthu -->
+      <div class="char npc" id="npcMuthu" style="left:326px;top:208px">
+        <div class="char-head"><div class="ch-hair grey-hair"></div><div class="ch-eyes"></div></div>
+        <div class="char-body apron"></div>
+        <div class="char-legs cream-legs"></div>
+        <div class="char-tag">MUTHU · TEA MASTER</div>
+      </div>
+
+      <!-- Student: Karthik -->
+      <div class="char npc" id="npcKarthik" style="left:168px;top:218px">
+        <div class="char-head"><div class="ch-hair dark-hair"></div><div class="ch-eyes"></div></div>
+        <div class="char-body hoodie"></div>
+        <div class="char-legs jeans"></div>
+        <div class="char-tag">KARTHIK · STUDENT</div>
+      </div>
+
+      <!-- Doctor: Priya -->
+      <div class="char npc" id="npcPriya" style="left:758px;top:218px">
+        <div class="char-head"><div class="ch-hair bun-hair"></div><div class="ch-eyes"></div></div>
+        <div class="char-body coat"></div>
+        <div class="char-legs white-legs"></div>
+        <div class="char-tag">DR. PRIYA · ICU</div>
+      </div>
+
+      <!-- Engineer: Kavitha -->
+      <div class="char npc" id="npcKavitha" style="left:536px;top:385px">
+        <div class="char-head"><div class="ch-hair ponytail-hair"></div><div class="ch-eyes"></div></div>
+        <div class="char-body vest"></div>
+        <div class="char-legs cargo-legs"></div>
+        <div class="char-tag">KAVITHA · GRID CHIEF</div>
+      </div>
+
+      <!-- Fallen Power Node (appears after blackout) -->
+      <div class="power-node hidden" id="fallenDevice" style="left:448px;top:298px">
+        <div class="node-pulse"></div>
+        <div class="node-icon">⚡</div>
+        <span class="node-tag">EMERGENCY CORE</span>
+      </div>
+
+      <!-- PLAYER CHARACTER -->
+      <div class="char player-char" id="playerActor" style="left:460px;top:265px">
+        <div class="char-head"><div class="ch-hair player-hair"></div><div class="ch-eyes"></div></div>
+        <div class="char-body orange-jacket"></div>
+        <div class="char-legs denim-legs"></div>
+        <div class="char-tag tag-player">YOU (COORDINATOR)</div>
+      </div>
+
+      <!-- Context Bubble (E to interact) -->
+      <div class="ctx-bubble hidden" id="contextBubble" style="left:450px;top:200px">
+        <span class="ctx-key">E</span>
+        <span id="contextLabel">TALK</span>
+      </div>
+
+      <!-- Celebration rays (best ending) -->
+      <div class="sun-rays hidden" id="celebRays">
+        <div class="ray r1"></div><div class="ray r2"></div><div class="ray r3"></div>
+        <div class="ray r4"></div><div class="ray r5"></div><div class="ray r6"></div>
+      </div>
+
+    </div><!-- /stage -->
+
+    <!-- ── DIALOGUE BOX ───────────────────────────────────────── -->
+    <div class="dialogue-tray hidden" id="dialogueTray">
+      <div class="dt-inner">
+        <div class="dt-speaker">
+          <span class="dt-avatar" id="dialogueAvatar">☕</span>
+          <div>
+            <div class="dt-name" id="dialogueName">MUTHU</div>
+            <div class="dt-title" id="dialogueTitle">TEA MASTER</div>
+          </div>
+        </div>
+        <div class="dt-text" id="dialogueContent">Hello!</div>
+        <div class="dt-foot">
+          <span class="dt-hint">Press <kbd>SPACE</kbd> or click to continue</span>
+          <button id="btnDialogueNext" class="btn btn-next" type="button">NEXT →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DECISION 1: HOSPITAL vs METRO ─────────────────────── -->
+    <div class="modal-overlay hidden" id="modalDevice">
+      <div class="modal-card">
+        <div class="modal-icon">⚡</div>
+        <h2 class="modal-title">THE GRID FLICKERS!<br>WHERE DOES POWER GO?</h2>
+        <p class="modal-desc">One sector gets the main line. The other must bear the shortage.</p>
+        <div class="choices-row">
+          <div class="choice-card cc-hosp" id="btnChooseHosp">
+            <div class="cc-icon">🏥</div>
+            <h3>PROTECT HOSPITAL</h3>
+            <p>43 ICU patients and surgical units stay powered.</p>
+            <div class="cc-cost">⚠ Metro trains stop. Commuters stranded.</div>
+            <button class="btn btn-choose btn-hosp" type="button">POWER HOSPITAL</button>
+          </div>
+          <div class="choice-card cc-metro" id="btnChooseMetro">
+            <div class="cc-icon">🚇</div>
+            <h3>KEEP METRO MOVING</h3>
+            <p>Safely evacuate 2,400 passengers through the tunnels.</p>
+            <div class="cc-cost">⚠ Hospital switches to 14-min emergency battery.</div>
+            <button class="btn btn-choose btn-metro" type="button">POWER METRO</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FINAL ALLOCATION MODAL ─────────────────────────────── -->
+    <div class="modal-overlay hidden" id="modalAllocation">
+      <div class="modal-card modal-alloc">
+        <div class="modal-icon">⚖️</div>
+        <h2 class="modal-title">THE LAST DECISION</h2>
+        <p class="modal-desc">You've gathered all the facts.<br>Distribute <strong>100 UNITS</strong> of solar reserve wisely.</p>
+
+        <div class="alloc-bar-header">
+          <span>ENERGY ALLOCATION</span>
+          <span id="allocTotalDisplay">100 / 100 UNITS</span>
+        </div>
+        <div class="alloc-track">
+          <div class="at-seg seg-h" id="segHosp" style="width:35%"></div>
+          <div class="at-seg seg-g" id="segGrid" style="width:35%"></div>
+          <div class="at-seg seg-m" id="segMetro" style="width:30%"></div>
+        </div>
+
+        <div class="sliders-wrap">
+          <div class="slider-row sr-hosp">
+            <div class="sr-label"><span>🏥 HOSPITAL</span><strong id="valHospDisplay">35%</strong></div>
+            <input type="range" id="sliderHosp" class="c-slider" min="10" max="60" value="35" aria-label="Hospital">
+            <p class="sr-note" id="noteHosp">ICU life-support stable.</p>
+          </div>
+          <div class="slider-row sr-grid">
+            <div class="sr-label"><span>⚡ GRID BUFFER</span><strong id="valGridDisplay">35%</strong></div>
+            <input type="range" id="sliderGrid" class="c-slider" min="10" max="60" value="35" aria-label="Grid">
+            <p class="sr-note" id="noteGrid">Prevents cascading city-wide trip.</p>
+          </div>
+          <div class="slider-row sr-metro">
+            <div class="sr-label"><span>🚇 METRO</span><strong id="valMetroDisplay">30%</strong></div>
+            <input type="range" id="sliderMetro" class="c-slider" min="10" max="60" value="30" aria-label="Metro">
+            <p class="sr-note" id="noteMetro">Reduced-speed evacuation.</p>
+          </div>
+        </div>
+
+        <button id="btnCommitAllocation" class="btn btn-commit" type="button">
+          COMMIT ALLOCATION →
         </button>
-        <div class="intro-controls-hint">
-          <span>Use <strong>WASD / Arrow Keys</strong> to move</span> • 
-          <span><strong>E</strong> to interact</span>
-        </div>
       </div>
-    </section>
+    </div>
 
-    <!-- 2. MAIN PLAYABLE CITY STREET SCENE -->
-    <section id="sceneCity" class="game-scene scene-city">
-      
-      <!-- SUBTLE OBJECTIVE BANNER (Contextual, minimal) -->
-      <div class="city-objective-pill" id="objectivePill">
-        <span class="obj-dot"></span>
-        <span id="objectiveText">Explore the street. Talk to the locals.</span>
+    <!-- MOBILE CONTROLS -->
+    <div class="mobile-ctrl" id="mobileControls">
+      <div class="dpad">
+        <button class="dp-btn dp-u" id="dpadUp" type="button">▲</button>
+        <button class="dp-btn dp-l" id="dpadLeft" type="button">◀</button>
+        <button class="dp-btn dp-d" id="dpadDown" type="button">▼</button>
+        <button class="dp-btn dp-r" id="dpadRight" type="button">▶</button>
       </div>
+      <button class="act-btn" id="mobileInteractBtn" type="button">
+        <span>E</span><small>ACT</small>
+      </button>
+    </div>
 
-      <!-- PLAYABLE CITY ENVIRONMENT VIEWPORT -->
-      <div id="cityStage" class="city-stage">
-        
-        <!-- SKYLINE & AMBIENT CITY LAYER -->
-        <div class="skyline-layer" id="skylineLayer">
-          <div class="metro-flyover">
-            <div class="flyover-track"></div>
-            <div class="metro-train-anim" id="metroTrainAnim">
-              <span class="train-head">M</span>
-              <span class="train-car-seg"></span>
-              <span class="train-car-seg"></span>
-            </div>
-          </div>
-          <div class="distant-chennai-monuments">
-            <span class="monument m-rip">CHENNAI CENTRAL 2047</span>
-            <span class="monument m-bridge">KATHIPARA FLYOVER LOOP</span>
-          </div>
-        </div>
+  </div><!-- /sceneCity -->
 
-        <!-- OVERHEAD POWER CABLES (SVG Lines connecting sectors) -->
-        <svg class="street-cables-svg" id="cablesSvg" viewBox="0 0 1000 600">
-          <path id="cableSubToMetro" class="cable-line cable-live" d="M 520 480 Q 300 360 160 220" />
-          <path id="cableSubToHosp" class="cable-line cable-live" d="M 520 480 Q 700 360 840 220" />
-          <path id="cableSubToTea" class="cable-line cable-live" d="M 520 480 Q 480 340 380 240" />
-        </svg>
+  <!-- =====================================================================
+       SCENE 3: ENDING — Scenic Overlook + Kural Discovery
+  ====================================================================== -->
+  <div id="sceneEnding" class="scene">
 
-        <!-- STREET SURFACE & ROAD MARKINGS -->
-        <div class="street-surface">
-          <div class="crosswalk cw-1"></div>
-          <div class="crosswalk cw-2"></div>
-          <div class="road-lanes"></div>
-          
-          <!-- STREET LAMPS (Flicker dynamically during blackout) -->
-          <div class="lamp-post lamp-1" id="lamp1" style="left: 140px; top: 230px;">
-            <div class="lamp-head"></div>
-            <div class="lamp-pool" id="pool1"></div>
-          </div>
-          <div class="lamp-post lamp-2" id="lamp2" style="left: 360px; top: 230px;">
-            <div class="lamp-head"></div>
-            <div class="lamp-pool" id="pool2"></div>
-          </div>
-          <div class="lamp-post lamp-3" id="lamp3" style="left: 640px; top: 230px;">
-            <div class="lamp-head"></div>
-            <div class="lamp-pool" id="pool3"></div>
-          </div>
-          <div class="lamp-post lamp-4" id="lamp4" style="left: 860px; top: 230px;">
-            <div class="lamp-head"></div>
-            <div class="lamp-pool" id="pool4"></div>
-          </div>
-        </div>
+    <!-- Sky -->
+    <div class="ending-sky">
+      <div class="e-sun"></div>
+      <div class="e-cloud ec1"><span></span><span></span><span></span></div>
+      <div class="e-cloud ec2"><span></span><span></span><span></span></div>
+    </div>
 
-        <!-- LOCATION 1: METRO ENTRANCE (Far Left) -->
-        <div class="location-building loc-metro" id="locMetro" style="left: 40px; top: 70px; width: 200px; height: 170px;">
-          <div class="loc-sign sign-metro" id="metroSign">
-            <span class="sign-badge">M</span>
-            <span class="sign-title">CENTRAL METRO</span>
-            <span class="sign-status" id="metroStatusPill">ONLINE</span>
-          </div>
-          <div class="metro-portal">
-            <div class="metro-stairs"></div>
-            <div class="metro-gate-light" id="metroGateLight"></div>
-          </div>
-          <div class="loc-label">SECTOR A // TRANSIT</div>
-        </div>
+    <!-- Layered Nature Panorama -->
+    <div class="ending-panorama" id="cityPanorama">
+      <!-- distant mountains -->
+      <div class="ep-mtn ep-m1"></div>
+      <div class="ep-mtn ep-m2"></div>
+      <div class="ep-mtn ep-m3"></div>
+      <!-- rolling green hills -->
+      <div class="ep-hill ep-h1"></div>
+      <div class="ep-hill ep-h2"></div>
+      <!-- wide meadow floor -->
+      <div class="ep-meadow"></div>
+      <!-- Lush trees across scene -->
+      <div class="ep-tree" style="left:5%;bottom:32%"><div class="ep-trunk"></div><div class="ep-can ec-g"></div></div>
+      <div class="ep-tree" style="left:15%;bottom:30%"><div class="ep-trunk"></div><div class="ep-can ec-l"></div></div>
+      <div class="ep-tree" style="left:28%;bottom:35%"><div class="ep-trunk"></div><div class="ep-can ec-g"></div></div>
+      <div class="ep-tree" style="left:44%;bottom:28%"><div class="ep-palm-trunk"></div><div class="ep-palm">🌴</div></div>
+      <div class="ep-tree" style="left:58%;bottom:30%"><div class="ep-trunk"></div><div class="ep-can ec-l"></div></div>
+      <div class="ep-tree" style="left:72%;bottom:35%"><div class="ep-trunk"></div><div class="ep-can ec-g"></div></div>
+      <div class="ep-tree" style="left:85%;bottom:30%"><div class="ep-palm-trunk"></div><div class="ep-palm">🌴</div></div>
+      <div class="ep-tree" style="left:93%;bottom:32%"><div class="ep-trunk"></div><div class="ep-can ec-g"></div></div>
+      <!-- Flower patches -->
+      <div class="ep-flowers" style="left:8%;bottom:28%">🌺🌸🌷</div>
+      <div class="ep-flowers" style="left:35%;bottom:26%">🌻🌼🌿</div>
+      <div class="ep-flowers" style="left:64%;bottom:26%">🌸🌺🌿</div>
+      <div class="ep-flowers" style="left:88%;bottom:28%">🌷🌻🌸</div>
+    </div>
 
-        <!-- LOCATION 2: TEA SHOP (Center Left) -->
-        <div class="location-building loc-teashop" id="locTeashop" style="left: 280px; top: 100px; width: 170px; height: 140px;">
-          <div class="loc-sign sign-tea">
-            <span class="sign-badge">☕</span>
-            <span class="sign-title">ANNA NAGAR CHAI</span>
-          </div>
-          <div class="tea-stall-front">
-            <div class="tea-counter">
-              <span class="tea-glasses">🫖</span>
-            </div>
-            <div class="tea-awning"></div>
-          </div>
-          <div class="loc-label">COMMUNITY HUB</div>
-        </div>
+    <!-- Ending objective text -->
+    <div class="ending-pill" id="endingPillOuter">
+      <span>🌿</span>
+      <span id="scenicGoal">Walk the hilltop. Discover the 4 fragments of ancient wisdom.</span>
+    </div>
 
-        <!-- LOCATION 3: POWER SUBSTATION (Bottom Center) -->
-        <div class="location-building loc-power" id="locPower" style="left: 420px; top: 430px; width: 220px; height: 140px;">
-          <div class="loc-sign sign-power" id="powerSign">
-            <span class="sign-badge">⚡</span>
-            <span class="sign-title">TNEB SUBSTATION 07</span>
-            <span class="sign-status" id="powerStatusPill">OPTIMAL</span>
-          </div>
-          <div class="substation-machinery">
-            <div class="substation-coil coil-left" id="coilLeft"></div>
-            <div class="substation-core" id="substationCore"></div>
-            <div class="substation-coil coil-right" id="coilRight"></div>
-          </div>
-          <div class="loc-label">SECTOR B // GRID ALLOCATION</div>
-        </div>
+    <!-- ── THE 4 KURAL RELICS ──────────────────────────── -->
+    <div class="relics-layer">
 
-        <!-- LOCATION 4: METRO HOSPITAL (Far Right) -->
-        <div class="location-building loc-hospital" id="locHospital" style="left: 740px; top: 70px; width: 220px; height: 170px;">
-          <div class="loc-sign sign-hospital" id="hospSign">
-            <span class="sign-badge">+</span>
-            <span class="sign-title">REGIONAL TRAUMA &amp; ICU</span>
-            <span class="sign-status" id="hospStatusPill">ONLINE</span>
-          </div>
-          <div class="hospital-facade">
-            <div class="hosp-cross-beacon" id="hospCross">+</div>
-            <div class="hosp-window-row">
-              <span class="h-win hw-1" id="hw1">ICU</span>
-              <span class="h-win hw-2" id="hw2">SURGERY</span>
-              <span class="h-win hw-3" id="hw3">VENT</span>
-            </div>
-          </div>
-          <div class="loc-label">SECTOR C // CRITICAL LIFE SUPPORT</div>
-        </div>
-
-        <!-- VEHICLES & CHENNAI PROPS -->
-        <div class="street-prop auto-rickshaw" style="left: 480px; top: 225px;">
-          <div class="auto-body">
-            <span class="auto-roof"></span>
-            <span class="auto-meter">AUTO 2047</span>
-          </div>
-        </div>
-
-        <!-- NPCS (With interactive collision / proximity) -->
-        <!-- NPC 1: TEA SHOP OWNER (Muthu) -->
-        <div class="npc-actor npc-teaowner" id="npcTeaOwner" style="left: 330px; top: 215px;">
-          <div class="npc-sprite sprite-muthu">
-            <div class="npc-head"></div>
-            <div class="npc-torso apron-white"></div>
-          </div>
-          <div class="npc-nametag">MUTHU • TEA STALL</div>
-        </div>
-
-        <!-- NPC 2: METRO STUDENT (Karthik) -->
-        <div class="npc-actor npc-student" id="npcStudent" style="left: 170px; top: 225px;">
-          <div class="npc-sprite sprite-karthik">
-            <div class="npc-head"></div>
-            <div class="npc-torso hoodie-cyan"></div>
-          </div>
-          <div class="npc-nametag">KARTHIK • STUDENT</div>
-        </div>
-
-        <!-- NPC 3: HOSPITAL WORKER (Dr. Priya) -->
-        <div class="npc-actor npc-doctor" id="npcDoctor" style="left: 770px; top: 225px;">
-          <div class="npc-sprite sprite-priya">
-            <div class="npc-head"></div>
-            <div class="npc-torso coat-white"></div>
-          </div>
-          <div class="npc-nametag">DR. PRIYA • ICU</div>
-        </div>
-
-        <!-- NPC 4: POWER ENGINEER (Kavitha) -->
-        <div class="npc-actor npc-engineer" id="npcEngineer" style="left: 550px; top: 410px;">
-          <div class="npc-sprite sprite-kavitha">
-            <div class="npc-head"></div>
-            <div class="npc-torso vest-yellow"></div>
-          </div>
-          <div class="npc-nametag">KAVITHA • GRID CHIEF</div>
-        </div>
-
-        <!-- STRANGE GLOWING FALLEN DEVICE (Appears during blackout event) -->
-        <div class="fallen-device hidden" id="fallenDevice" style="left: 460px; top: 310px;">
-          <div class="device-glow-ring"></div>
-          <div class="device-chassis">
-            <span class="device-core-icon">⎔</span>
-            <span class="device-tag">CITY NODE 07</span>
-          </div>
-          <div class="device-beacon-light"></div>
-        </div>
-
-        <!-- PLAYABLE CHARACTER (Ravi / Coordinator) -->
-        <div class="player-actor" id="playerActor" style="left: 460px; top: 270px;">
-          <div class="player-shadow"></div>
-          <div class="player-body">
-            <div class="player-head">
-              <div class="player-visor"></div>
-            </div>
-            <div class="player-jacket"></div>
-          </div>
-          <div class="player-tag">YOU</div>
-        </div>
-
-        <!-- DYNAMIC CONTEXTUAL INTERACTION PROMPT -->
-        <div class="context-bubble hidden" id="contextBubble">
-          <span class="bubble-btn">E</span>
-          <span class="bubble-label" id="contextLabel">TALK</span>
-        </div>
-
-        <!-- WORLD NOTIFICATION BANNER (Subtle consequence feedback) -->
-        <div class="world-banner hidden" id="worldBanner">
-          <span class="banner-icon" id="bannerIcon">⚠</span>
-          <span class="banner-text" id="bannerText">City power fluctuation detected.</span>
-        </div>
-
+      <div class="relic" id="relicLeaf" style="left:18%;top:45%">
+        <div class="relic-glow"></div>
+        <div class="relic-icon">🌱</div>
+        <div class="relic-tag" id="tagLeaf">DISCOVER</div>
       </div>
 
-      <!-- IN-GAME DIALOGUE BOX (Bottom overlay) -->
-      <div class="dialogue-tray hidden" id="dialogueTray">
-        <div class="dialogue-inner">
-          <div class="speaker-profile">
-            <div class="speaker-avatar" id="dialogueAvatar">☕</div>
-            <div class="speaker-info">
-              <span class="speaker-name" id="dialogueName">MUTHU</span>
-              <span class="speaker-title" id="dialogueTitle">TEA SHOP OWNER</span>
-            </div>
-          </div>
-          <div class="dialogue-content" id="dialogueContent">
-            "Power cut again?"
-          </div>
-          <div class="dialogue-actions">
-            <span class="advance-hint">[SPACE] or Click to Continue →</span>
-            <button id="btnDialogueNext" class="btn btn-dialogue" type="button">NEXT →</button>
-          </div>
-        </div>
+      <div class="relic" id="relicLight" style="left:36%;top:32%">
+        <div class="relic-glow"></div>
+        <div class="relic-icon">💡</div>
+        <div class="relic-tag" id="tagLight">DISCOVER</div>
       </div>
 
-      <!-- ON-SCREEN MOBILE CONTROLS (Virtual D-pad & Interact button) -->
-      <div class="mobile-dpad-container" id="mobileDpad">
-        <div class="dpad-cross">
-          <button class="dpad-key dpad-up" id="dpadUp" type="button">▲</button>
-          <button class="dpad-key dpad-left" id="dpadLeft" type="button">◀</button>
-          <button class="dpad-key dpad-down" id="dpadDown" type="button">▼</button>
-          <button class="dpad-key dpad-right" id="dpadRight" type="button">▶</button>
-        </div>
-        <button class="mobile-interact-btn" id="mobileInteractBtn" type="button">
-          <span>E</span>
-          <small>ACTION</small>
-        </button>
+      <div class="relic" id="relicTree" style="left:60%;top:32%">
+        <div class="relic-glow"></div>
+        <div class="relic-icon">🌳</div>
+        <div class="relic-tag" id="tagTree">DISCOVER</div>
       </div>
 
-    </section>
+      <div class="relic" id="relicHorizon" style="left:78%;top:45%">
+        <div class="relic-glow"></div>
+        <div class="relic-icon">🌅</div>
+        <div class="relic-tag" id="tagHorizon">DISCOVER</div>
+      </div>
 
-    <!-- 3. SCENE 2: STRANGE DEVICE MINIGAME MODAL -->
-    <section id="modalDevice" class="game-modal hidden">
-      <div class="device-modal-card">
-        <div class="device-screen-header">
-          <span class="device-terminal-id">CITY NODE 07 // EMERGENCY PROTOCOL</span>
-          <h2 class="device-screen-title">ONE WILL FAIL. CHOOSE CAREFULLY.</h2>
-          <p class="device-screen-desc">
-            A single surviving high-voltage line remains energized. You must manually route the node to one sector.
+    </div>
+
+    <!-- Relic context bubble -->
+    <div class="relic-bubble hidden" id="relicBubble" style="left:50%;top:30%">
+      <span class="ctx-key">E</span>
+      <span id="relicLabel">OBSERVE</span>
+    </div>
+
+    <!-- Scenic player -->
+    <div class="char player-char" id="scenicPlayer" style="left:48%;top:58%">
+      <div class="char-head"><div class="ch-hair player-hair"></div><div class="ch-eyes"></div></div>
+      <div class="char-body orange-jacket"></div>
+      <div class="char-legs denim-legs"></div>
+      <div class="char-tag tag-player">YOU</div>
+    </div>
+
+    <!-- Dialogue (reused tray, cloned to scene) -->
+
+    <!-- ── CELESTIAL KURAL OVERLAY (after all 4 relics found) ── -->
+    <div class="kural-sky hidden" id="kuralCelestial">
+      <div class="kural-backdrop"></div>
+      <div class="kural-content">
+        <div class="kural-sparkles">✨ 🌸 ✨</div>
+        <div class="kural-badge">THIRUKKURAL 461</div>
+        <blockquote class="kural-verse">
+          <span class="kv-l1" id="cWord1">அழிவதூஉம் ஆவதூஉம் ஆகி</span>
+          <span class="kv-l2" id="cWord2">வழிபயக்கும் ஊதியமும் சூழ்ந்து செயல்.</span>
+        </blockquote>
+        <div class="kural-meanings">
+          <div class="km-box km-tamil">
+            <div class="km-label">தமிழ் பொருள்</div>
+            <p>ஒரு செயலைச் செய்வதற்கு முன்,<br>அதன் இழப்பு, பயன், விளைவு ஆகியவற்றை<br>நன்கு ஆராய்ந்து செயல்பட வேண்டும்.</p>
+          </div>
+          <div class="km-box km-eng">
+            <div class="km-label">ENGLISH</div>
+            <p>Before acting, weigh what may be lost,<br>what may be gained, and what consequence<br>may follow downstream.</p>
+          </div>
+        </div>
+        <div class="kural-bridge">
+          <p>You didn't just <em>read</em> the Kural.</p>
+          <p><strong>You played its meaning.</strong></p>
+          <p class="kural-punch">
+            Don't ask: <span>"What should I do?"</span><br>
+            Ask: <span>"What will happen if I do?"</span>
           </p>
         </div>
-
-        <div class="device-target-grid">
-          
-          <!-- TARGET 1: HOSPITAL -->
-          <div class="device-target-card card-hosp" id="targetCardHosp">
-            <div class="target-badge">+</div>
-            <h3 class="target-name">REGIONAL HOSPITAL</h3>
-            <div class="target-stats">
-              <span><strong>43 patients</strong> in trauma &amp; ICU</span>
-              <span>Generators on 14-min reserve</span>
-            </div>
-            <div class="target-tradeoff">
-              <strong>Risk:</strong> Metro transit network completely dies in tunnels.
-            </div>
-            <button class="btn btn-target" id="btnChooseHosp" type="button">
-              CONNECT POWER TO HOSPITAL
-            </button>
+        <div class="kural-portals">
+          <div class="portal" id="portalWalkCity">
+            <div class="portal-icon">🌆</div>
+            <div class="portal-label">SEE YOUR CITY</div>
+            <div class="portal-sub">Walk back to Chennai</div>
           </div>
-
-          <!-- TARGET 2: METRO -->
-          <div class="device-target-card card-metro" id="targetCardMetro">
-            <div class="target-badge">M</div>
-            <h3 class="target-name">CENTRAL METRO</h3>
-            <div class="target-stats">
-              <span><strong>2,400 commuters</strong> stuck underground</span>
-              <span>Subterranean ventilation drops</span>
-            </div>
-            <div class="target-tradeoff">
-              <strong>Risk:</strong> Hospital switches to emergency battery; runtime critical.
-            </div>
-            <button class="btn btn-target" id="btnChooseMetro" type="button">
-              CONNECT POWER TO METRO
-            </button>
+          <div class="portal" id="portalReplayNode">
+            <div class="portal-icon">↺</div>
+            <div class="portal-label">PLAY AGAIN</div>
+            <div class="portal-sub">Try a different path</div>
           </div>
-
-        </div>
-
-        <div class="device-screen-footer">
-          Connect the feeder line to establish immediate emergency routing.
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- 4. SCENE 5: THE LAST DECISION — ENERGY ALLOCATION INTERACTION -->
-    <section id="modalAllocation" class="game-modal hidden">
-      <div class="allocation-modal-card">
-        <div class="alloc-header">
-          <span class="alloc-tag">FINAL COMMAND // THE LAST DECISION</span>
-          <h2 class="alloc-title">YOU HAVE SEEN WHAT EACH DECISION CAUSES.</h2>
-          <p class="alloc-sub">
-            The city's remaining reserve is limited to <strong>100 UNITS</strong>. Distribute energy across all three sectors.
-          </p>
-        </div>
-
-        <!-- VISUAL ENERGY POOL BAR -->
-        <div class="energy-pool-container">
-          <div class="pool-meta">
-            <span class="pool-label">TOTAL ALLOCATED POWER</span>
-            <span class="pool-status" id="allocTotalDisplay">100 / 100 UNITS</span>
-          </div>
-          <div class="pool-bar-track">
-            <div class="pool-seg seg-hosp" id="segHosp" style="width: 35%;"></div>
-            <div class="pool-seg seg-grid" id="segGrid" style="width: 35%;"></div>
-            <div class="pool-seg seg-metro" id="segMetro" style="width: 30%;"></div>
-          </div>
-        </div>
-
-        <!-- 3 PHYSICAL ENERGY SLIDERS -->
-        <div class="alloc-sliders-grid">
-          
-          <!-- HOSPITAL ALLOCATION -->
-          <div class="alloc-card alloc-hosp">
-            <div class="alloc-card-top">
-              <span class="alloc-icon">+</span>
-              <span class="alloc-sector-name">HOSPITAL</span>
-              <span class="alloc-val-badge" id="valHospDisplay">35%</span>
-            </div>
-            <input type="range" min="0" max="80" value="35" class="energy-slider" id="sliderHosp" aria-label="Hospital Energy Allocation">
-            <p class="alloc-impact-note" id="noteHosp">
-              <em>Critical care stabilized. Non-essential wards dimmed.</em>
-            </p>
-          </div>
-
-          <!-- POWER GRID ALLOCATION -->
-          <div class="alloc-card alloc-grid">
-            <div class="alloc-card-top">
-              <span class="alloc-icon">⚡</span>
-              <span class="alloc-sector-name">GRID BUFFER</span>
-              <span class="alloc-val-badge" id="valGridDisplay">35%</span>
-            </div>
-            <input type="range" min="0" max="80" value="35" class="energy-slider" id="sliderGrid" aria-label="Grid Buffer Energy Allocation">
-            <p class="alloc-impact-note" id="noteGrid">
-              <em>Sufficient buffer to absorb cascading secondary shock.</em>
-            </p>
-          </div>
-
-          <!-- METRO ALLOCATION -->
-          <div class="alloc-card alloc-metro">
-            <div class="alloc-card-top">
-              <span class="alloc-icon">M</span>
-              <span class="alloc-sector-name">METRO</span>
-              <span class="alloc-val-badge" id="valMetroDisplay">30%</span>
-            </div>
-            <input type="range" min="0" max="80" value="30" class="energy-slider" id="sliderMetro" aria-label="Metro Energy Allocation">
-            <p class="alloc-impact-note" id="noteMetro">
-              <em>Trains running reduced speed. Evacuation pathways safe.</em>
-            </p>
-          </div>
-
-        </div>
-
-        <div class="alloc-actions">
-          <button id="btnCommitAllocation" class="btn btn-primary btn-alloc-commit" type="button">
-            EXECUTE FINAL ALLOCATION →
-          </button>
-        </div>
-
+    <!-- Mobile controls for scenic scene -->
+    <div class="mobile-ctrl" id="mobileControlsEnding">
+      <div class="dpad">
+        <button class="dp-btn dp-u" id="dpadUpE" type="button">▲</button>
+        <button class="dp-btn dp-l" id="dpadLeftE" type="button">◀</button>
+        <button class="dp-btn dp-d" id="dpadDownE" type="button">▼</button>
+        <button class="dp-btn dp-r" id="dpadRightE" type="button">▶</button>
       </div>
-    </section>
+      <button class="act-btn" id="mobileInteractBtnE" type="button">
+        <span>E</span><small>ACT</small>
+      </button>
+    </div>
 
-    <!-- 5. ENDING & CINEMATIC THIRUKKURAL 461 REVEAL SCENE -->
-    <section id="sceneEnding" class="game-scene scene-ending">
-      <div class="ending-container">
-        
-        <!-- NARRATIVE VERDICT BANNER -->
-        <div class="verdict-banner" id="verdictBanner">
-          <span class="verdict-category" id="verdictCategory">ENDING: THE THINKER</span>
-          <h1 class="verdict-headline" id="verdictHeadline">THE CITY SURVIVED.</h1>
-          <p class="verdict-narration-1" id="verdictNarr1">
-            You didn't choose what mattered most.
-          </p>
-          <p class="verdict-narration-2" id="verdictNarr2">
-            You understood what each choice would cost.
-          </p>
-          <div class="verdict-highlight" id="verdictHighlight">
-            THE CITY SURVIVED BECAUSE YOU THOUGHT BEYOND THE FIRST MOVE.
-          </div>
+  </div><!-- /sceneEnding -->
+
+  <!-- Shared dialogue tray (shown on top in ending scene too) -->
+  <div class="dialogue-tray hidden" id="dialogueTrayShared">
+    <div class="dt-inner">
+      <div class="dt-speaker">
+        <span class="dt-avatar" id="dialogueAvatarS">🌱</span>
+        <div>
+          <div class="dt-name" id="dialogueNameS">SAGE</div>
+          <div class="dt-title" id="dialogueTitleS">ANCIENT WISDOM</div>
         </div>
-
-        <!-- RECAP OF PLAYER JOURNEY -->
-        <div class="journey-recap-box">
-          <h3 class="recap-title">YOUR PATH OF CAUSALITY</h3>
-          <div class="recap-grid" id="recapGrid">
-            <!-- Dynamically populated in script.js -->
-          </div>
-        </div>
-
-        <!-- THIRUKKURAL 461 MASTERPIECE REVEAL -->
-        <div class="kural-reveal-monument">
-          
-          <div class="kural-prelude">
-            <span class="kural-line k-line-1" id="kLine1">அழிவதூஉம்...</span>
-            <span class="kural-line k-line-2" id="kLine2">ஆவதூஉம் ஆகி...</span>
-            <span class="kural-line k-line-3" id="kLine3">வழிபயக்கும்...</span>
-            <span class="kural-line k-line-4" id="kLine4">ஊதியமும் சூழ்ந்து செயல்.</span>
-          </div>
-
-          <div class="kural-monument-card">
-            <div class="monument-header">
-              <span class="monument-tag">TAMIL CLASSICAL PHILOSOPHY</span>
-              <span class="monument-num">THIRUKKURAL 461</span>
-            </div>
-
-            <!-- Full unaltered Tamil couplet -->
-            <blockquote class="monument-tamil-verse">
-              அழிவதூஉம் ஆவதூஉம் ஆகி வழிபயக்கும்<br>
-              ஊதியமும் சூழ்ந்து செயல்.
-            </blockquote>
-
-            <div class="monument-meanings">
-              
-              <div class="m-meaning m-tamil">
-                <span class="m-lang">பொருள் (TAMIL MEANING)</span>
-                <p class="m-body tamil-font">
-                  ஒரு செயலைச் செய்வதற்கு முன், அதனால் ஏற்படும் இழப்பு, கிடைக்கக்கூடிய பயன், மேலும் அதன் தொடர்ச்சியான விளைவுகளை ஆராய்ந்து செயல்பட வேண்டும்.
-                </p>
-              </div>
-
-              <div class="m-meaning m-eng">
-                <span class="m-lang">MEANING (ENGLISH)</span>
-                <p class="m-body">
-                  Before undertaking an action, consider what may be lost, what may result, and what lasting consequence may follow.
-                </p>
-              </div>
-
-            </div>
-
-            <!-- Bridge to Gameplay -->
-            <div class="monument-bridge">
-              <p><strong>Every decision in the game solved one problem while creating another.</strong></p>
-              <p>You didn't just read the Kural. <strong>You played it.</strong></p>
-            </div>
-
-            <!-- Final Takeaway Lines -->
-            <div class="monument-takeaway">
-              <div class="takeaway-q">Don't just ask: <span>“What should I do?”</span></div>
-              <div class="takeaway-a">Ask: <span>“What will happen if I do it?”</span></div>
-              <div class="takeaway-badge">THIRUKKURAL 461</div>
-            </div>
-
-          </div>
-
-        </div>
-
-        <!-- REPLAY ACTIONS -->
-        <div class="ending-actions">
-          <div class="replay-prompt">WHAT WOULD YOU CHANGE?</div>
-          <button id="btnReplay" class="btn btn-primary btn-replay" type="button">
-            ↻ PLAY AGAIN
-          </button>
-        </div>
-
       </div>
-    </section>
-
+      <div class="dt-text" id="dialogueContentS">...</div>
+      <div class="dt-foot">
+        <span class="dt-hint">Press <kbd>SPACE</kbd> or click</span>
+        <button id="btnDialogueNextS" class="btn btn-next" type="button">NEXT →</button>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>
