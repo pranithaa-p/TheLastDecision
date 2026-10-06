@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Last Decision — V1</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">CHENNAI // 2047</p>
+        <h1>THE LAST DECISION</h1>
+      </div>
+      <div class="round-box">
+        <span>DECISION</span>
+        <strong id="roundNumber">1 / 3</strong>
+      </div>
+    </header>
+
+    <section id="introScreen" class="screen active">
+      <div class="intro-card">
+        <p class="eyebrow">CITY EMERGENCY</p>
+        <h2>The city has lost 60% of its emergency power.</h2>
+        <p>
+          You are the emergency resource coordinator. Every decision solves
+          one problem — but may create another.
+        </p>
+        <button id="startBtn" class="primary-btn">START THE CRISIS</button>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen">
+      <div class="status-row">
+        <div class="stat">
+          <span>POWER</span>
+          <strong id="powerStat">60</strong>
+        </div>
+        <div class="stat">
+          <span>PUBLIC SAFETY</span>
+          <strong id="safetyStat">50</strong>
+        </div>
+        <div class="stat">
+          <span>TRUST</span>
+          <strong id="trustStat">50</strong>
+        </div>
+      </div>
+
+      <div class="event-card">
+        <div class="event-number" id="eventNumber">01</div>
+        <div>
+          <p class="eyebrow" id="eventTag">EMERGENCY ALERT</p>
+          <h2 id="eventTitle"></h2>
+          <p id="eventText"></p>
+        </div>
+      </div>
+
+      <div id="choices" class="choices"></div>
+
+      <div id="resultBox" class="result-box hidden">
+        <p class="eyebrow">CONSEQUENCE</p>
+        <h3 id="resultTitle"></h3>
+        <p id="resultText"></p>
+        <button id="nextBtn" class="secondary-btn">NEXT DECISION →</button>
+      </div>
+    </section>
+
+    <section id="endingScreen" class="screen">
+      <div class="ending-card">
+        <p class="eyebrow">CRISIS REPORT</p>
+        <h2 id="endingTitle"></h2>
+        <p id="endingText"></p>
+
+        <div class="final-stats">
+          <div><span>POWER</span><strong id="finalPower"></strong></div>
+          <div><span>SAFETY</span><strong id="finalSafety"></strong></div>
+          <div><span>TRUST</span><strong id="finalTrust"></strong></div>
+        </div>
+
+        <div class="kural">
+          <p class="eyebrow">THIRUKKURAL 461</p>
+          <p class="tamil">
+            அழிவதூஉம் ஆவதூஉம் ஆகி வழிபயக்கும்<br />
+            ஊதியமும் சூழ்ந்து செயல்.
+          </p>
+          <p class="meaning">
+            Before acting, consider what may be lost, what may result,
+            and what lasting benefit or consequence may follow.
+          </p>
+        </div>
+
+        <button id="restartBtn" class="primary-btn">PLAY AGAIN</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
