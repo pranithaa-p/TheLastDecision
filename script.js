@@ -1,7 +1,6 @@
 /**
  * THE LAST DECISION — CHENNAI 2047 // THIRUKKURAL 461
- * A 3-minute playable narrative experience combining exploration, dialogue,
- * in-world consequences, and ancient philosophy.
+ * An interactive story & playable browser game exploring ancient wisdom.
  * Vanilla JavaScript • Zero dependencies.
  */
 
@@ -9,13 +8,13 @@ document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
   // ==========================================================================
-  // 1. GAME STATE
+  // 1. CENTRAL GAME STATE
   // ==========================================================================
-  const state = {
-    phase: "INTRO", // INTRO, EXPLORE_1, DIALOGUE, DECISION, EXPLORE_2, EXPLORE_3, CLIMAX, REVEAL
+  const gameState = {
+    scene: "INTRO", // INTRO, CITY, DIALOGUE, DEVICE, EXPLORE, ALLOCATION, ENDING
     player: {
-      x: 470,
-      y: 290,
+      x: 460,
+      y: 270,
       speed: 4.2,
       isMoving: false
     },
@@ -25,82 +24,97 @@ document.addEventListener("DOMContentLoaded", () => {
       left: false,
       right: false
     },
-    worldBounds: {
-      minX: 40,
-      maxX: 960,
-      minY: 40,
-      maxY: 600
+    bounds: {
+      minX: 50,
+      maxX: 950,
+      minY: 170,
+      maxY: 460
     },
-    activeNpc: null,
-    storyStep: 1, // 1: Metro crisis, 2: Substation reserve, 3: Final cascade
-    decisionsHistory: [],
+    activeInteractable: null,
+    firstChoice: null, // "HOSPITAL" or "METRO"
+    blackoutTriggered: false,
+    dialogueCount: 0,
+    visited: {
+      teaShop: false,
+      student: false,
+      hospital: false,
+      powerStation: false
+    },
+    finalAllocation: {
+      hospital: 35,
+      grid: 35,
+      metro: 30
+    },
+    ending: null, // "SAVIOR", "SURVIVOR", "THINKER"
     audioEnabled: true,
     audioCtx: null,
-    typewriterTimer: null,
-    isTyping: false,
+
+    // Dialogue playback
     dialogueQueue: [],
-    currentDialogueIndex: 0,
-    onDialogueComplete: null
+    dialogueIndex: 0,
+    isTyping: false,
+    typewriterTimer: null,
+    onDialogueEnd: null
   };
 
   // ==========================================================================
-  // 2. AUDIO SYNTHESIZER (Web Audio API, Zero External Assets)
+  // 2. PROCEDURAL SOUND SYNTHESIZER (Web Audio API, Zero External Assets)
   // ==========================================================================
   function initAudio() {
-    if (!state.audioCtx) {
+    if (!gameState.audioCtx) {
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
       if (AudioCtxClass) {
-        state.audioCtx = new AudioCtxClass();
+        gameState.audioCtx = new AudioCtxClass();
       }
     }
-    if (state.audioCtx && state.audioCtx.state === "suspended") {
-      state.audioCtx.resume();
+    if (gameState.audioCtx && gameState.audioCtx.state === "suspended") {
+      gameState.audioCtx.resume();
     }
   }
 
-  function playTone(freq, type = "sine", duration = 0.08, gainVol = 0.06) {
-    if (!state.audioEnabled) return;
+  function playTone(freq, type = "sine", duration = 0.08, vol = 0.05) {
+    if (!gameState.audioEnabled) return;
     try {
       initAudio();
-      if (!state.audioCtx) return;
+      if (!gameState.audioCtx) return;
 
-      const osc = state.audioCtx.createOscillator();
-      const gain = state.audioCtx.createGain();
+      const osc = gameState.audioCtx.createOscillator();
+      const gain = gameState.audioCtx.createGain();
 
       osc.type = type;
-      osc.frequency.setValueAtTime(freq, state.audioCtx.currentTime);
+      osc.frequency.setValueAtTime(freq, gameState.audioCtx.currentTime);
 
-      gain.gain.setValueAtTime(gainVol, state.audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, state.audioCtx.currentTime + duration);
+      gain.gain.setValueAtTime(vol, gameState.audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, gameState.audioCtx.currentTime + duration);
 
       osc.connect(gain);
-      gain.connect(state.audioCtx.destination);
+      gain.connect(gameState.audioCtx.destination);
 
       osc.start();
-      osc.stop(state.audioCtx.currentTime + duration);
+      osc.stop(gameState.audioCtx.currentTime + duration);
     } catch {
-      // Audio fallback without throwing errors
+      // Audio fallback without interrupting game
     }
   }
 
   const sfx = {
-    blip: () => playTone(820, "triangle", 0.04, 0.03),
-    step: () => playTone(160, "sine", 0.05, 0.02),
+    step: () => playTone(140, "sine", 0.04, 0.02),
+    blip: () => playTone(780, "triangle", 0.03, 0.025),
     interact: () => {
-      playTone(480, "sine", 0.08, 0.06);
-      setTimeout(() => playTone(720, "sine", 0.1, 0.06), 60);
+      playTone(520, "sine", 0.08, 0.05);
+      setTimeout(() => playTone(780, "sine", 0.1, 0.05), 60);
+    },
+    blackout: () => {
+      playTone(180, "sawtooth", 0.35, 0.08);
+      setTimeout(() => playTone(90, "sawtooth", 0.5, 0.1), 120);
     },
     choice: () => {
-      playTone(400, "triangle", 0.1, 0.08);
-      setTimeout(() => playTone(600, "triangle", 0.15, 0.08), 80);
+      playTone(440, "triangle", 0.12, 0.06);
+      setTimeout(() => playTone(660, "triangle", 0.16, 0.06), 80);
     },
-    alarm: () => {
-      playTone(280, "sawtooth", 0.18, 0.07);
-      setTimeout(() => playTone(220, "sawtooth", 0.22, 0.07), 100);
-    },
-    triumph: () => {
+    success: () => {
       [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
-        setTimeout(() => playTone(freq, "sine", 0.25, 0.07), idx * 100);
+        setTimeout(() => playTone(freq, "sine", 0.22, 0.06), idx * 110);
       });
     }
   };
@@ -113,80 +127,90 @@ document.addEventListener("DOMContentLoaded", () => {
     soundIcon: document.getElementById("soundIcon"),
     soundText: document.getElementById("soundText"),
 
+    // Scenes
+    sceneIntro: document.getElementById("sceneIntro"),
+    sceneCity: document.getElementById("sceneCity"),
+    sceneEnding: document.getElementById("sceneEnding"),
+
     // Intro
-    introOverlay: document.getElementById("introOverlay"),
-    introLine1: document.getElementById("introLine1"),
-    introLine2: document.getElementById("introLine2"),
-    introLine3: document.getElementById("introLine3"),
-    introSkyline: document.getElementById("introSkyline"),
-    introLineAlert: document.getElementById("introLineAlert"),
-    introLineRole: document.getElementById("introLineRole"),
-    btnStartStory: document.getElementById("btnStartStory"),
+    btnStartGame: document.getElementById("btnStartGame"),
 
-    // In-Game HUD
-    hudObjective: document.getElementById("hudObjective"),
-    stateHospital: document.getElementById("stateHospital"),
-    stateMetro: document.getElementById("stateMetro"),
-    stateGrid: document.getElementById("stateGrid"),
+    // City Elements
+    objectivePill: document.getElementById("objectivePill"),
+    objectiveText: document.getElementById("objectiveText"),
+    playerActor: document.getElementById("playerActor"),
+    contextBubble: document.getElementById("contextBubble"),
+    contextLabel: document.getElementById("contextLabel"),
+    worldBanner: document.getElementById("worldBanner"),
+    bannerIcon: document.getElementById("bannerIcon"),
+    bannerText: document.getElementById("bannerText"),
+    fallenDevice: document.getElementById("fallenDevice"),
 
-    // World Elements
-    player: document.getElementById("playerCharacter"),
-    npcArun: document.getElementById("npcArun"),
-    bubbleArun: document.getElementById("bubbleArun"),
-    npcKavitha: document.getElementById("npcKavitha"),
-    bubbleKavitha: document.getElementById("bubbleKavitha"),
-    consequenceBanner: document.getElementById("consequenceBanner"),
-    bannerTitle: document.getElementById("bannerTitle"),
-    bannerBody: document.getElementById("bannerBody"),
+    // Buildings & Signals
+    metroStatusPill: document.getElementById("metroStatusPill"),
+    hospStatusPill: document.getElementById("hospStatusPill"),
+    powerStatusPill: document.getElementById("powerStatusPill"),
+    hospCross: document.getElementById("hospCross"),
+    hw1: document.getElementById("hw1"),
+    hw2: document.getElementById("hw2"),
+    hw3: document.getElementById("hw3"),
+    metroGateLight: document.getElementById("metroGateLight"),
 
-    // Buildings & Districts
-    zoneMetro: document.getElementById("zoneMetro"),
-    zoneHospital: document.getElementById("zoneHospital"),
-    zonePower: document.getElementById("zonePower"),
-    hospBeacon: document.getElementById("hospBeacon"),
-    metroSignStatus: document.getElementById("metroSignStatus"),
-    hospSignStatus: document.getElementById("hospSignStatus"),
-    gridSignStatus: document.getElementById("gridSignStatus"),
-    reserveMeter: document.getElementById("reserveMeter"),
+    // Lamps
+    pool1: document.getElementById("pool1"),
+    pool2: document.getElementById("pool2"),
+    pool3: document.getElementById("pool3"),
+    pool4: document.getElementById("pool4"),
 
     // Cables
-    cableGridMetro: document.getElementById("cableGridMetro"),
-    cableGridHospital: document.getElementById("cableGridHospital"),
-    cableMetroHospital: document.getElementById("cableMetroHospital"),
+    cableSubToMetro: document.getElementById("cableSubToMetro"),
+    cableSubToHosp: document.getElementById("cableSubToHosp"),
+    cableSubToTea: document.getElementById("cableSubToTea"),
 
-    // Dialogue Box
-    dialogueContainer: document.getElementById("dialogueContainer"),
+    // Dialogue Tray
+    dialogueTray: document.getElementById("dialogueTray"),
     dialogueAvatar: document.getElementById("dialogueAvatar"),
     dialogueName: document.getElementById("dialogueName"),
-    dialogueRole: document.getElementById("dialogueRole"),
-    dialogueText: document.getElementById("dialogueText"),
-    btnAdvanceDialogue: document.getElementById("btnAdvanceDialogue"),
+    dialogueTitle: document.getElementById("dialogueTitle"),
+    dialogueContent: document.getElementById("dialogueContent"),
+    btnDialogueNext: document.getElementById("btnDialogueNext"),
 
-    // Decision Modal
-    decisionModal: document.getElementById("decisionModal"),
-    decisionTag: document.getElementById("decisionTag"),
-    decisionPromptTitle: document.getElementById("decisionPromptTitle"),
-    decisionPromptSub: document.getElementById("decisionPromptSub"),
+    // Device Minigame Modal (Scene 2)
+    modalDevice: document.getElementById("modalDevice"),
+    btnChooseHosp: document.getElementById("btnChooseHosp"),
+    btnChooseMetro: document.getElementById("btnChooseMetro"),
 
-    c1Icon: document.getElementById("c1Icon"),
-    c1Title: document.getElementById("c1Title"),
-    c1Stakes: document.getElementById("c1Stakes"),
-    c1Downside: document.getElementById("c1Downside"),
-    btnSelectChoice1: document.getElementById("btnSelectChoice1"),
+    // Final Allocation Modal (Scene 5)
+    modalAllocation: document.getElementById("modalAllocation"),
+    allocTotalDisplay: document.getElementById("allocTotalDisplay"),
+    segHosp: document.getElementById("segHosp"),
+    segGrid: document.getElementById("segGrid"),
+    segMetro: document.getElementById("segMetro"),
+    sliderHosp: document.getElementById("sliderHosp"),
+    sliderGrid: document.getElementById("sliderGrid"),
+    sliderMetro: document.getElementById("sliderMetro"),
+    valHospDisplay: document.getElementById("valHospDisplay"),
+    valGridDisplay: document.getElementById("valGridDisplay"),
+    valMetroDisplay: document.getElementById("valMetroDisplay"),
+    noteHosp: document.getElementById("noteHosp"),
+    noteGrid: document.getElementById("noteGrid"),
+    noteMetro: document.getElementById("noteMetro"),
+    btnCommitAllocation: document.getElementById("btnCommitAllocation"),
 
-    c2Icon: document.getElementById("c2Icon"),
-    c2Title: document.getElementById("c2Title"),
-    c2Stakes: document.getElementById("c2Stakes"),
-    c2Downside: document.getElementById("c2Downside"),
-    btnSelectChoice2: document.getElementById("btnSelectChoice2"),
+    // Ending Scene & Kural
+    verdictBanner: document.getElementById("verdictBanner"),
+    verdictCategory: document.getElementById("verdictCategory"),
+    verdictHeadline: document.getElementById("verdictHeadline"),
+    verdictNarr1: document.getElementById("verdictNarr1"),
+    verdictNarr2: document.getElementById("verdictNarr2"),
+    verdictHighlight: document.getElementById("verdictHighlight"),
+    recapGrid: document.getElementById("recapGrid"),
 
-    // Reveal Screen
-    revealOverlay: document.getElementById("revealOverlay"),
-    outcomeBanner: document.getElementById("outcomeBanner"),
-    verdictTitle: document.getElementById("verdictTitle"),
-    verdictDesc: document.getElementById("verdictDesc"),
-    timelineSteps: document.getElementById("timelineSteps"),
-    btnPlayAgain: document.getElementById("btnPlayAgain"),
+    kLine1: document.getElementById("kLine1"),
+    kLine2: document.getElementById("kLine2"),
+    kLine3: document.getElementById("kLine3"),
+    kLine4: document.getElementById("kLine4"),
+    btnReplay: document.getElementById("btnReplay"),
 
     // Mobile D-Pad
     dpadUp: document.getElementById("dpadUp"),
@@ -197,47 +221,47 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================================================
-  // 4. CINEMATIC INTRO SEQUENCE
+  // 4. SCENE SWITCHING
   // ==========================================================================
-  function runIntroSequence() {
-    setTimeout(() => els.introLine1.classList.add("show"), 300);
-    setTimeout(() => els.introLine2.classList.add("show"), 900);
-    setTimeout(() => els.introLine3.classList.add("show"), 1600);
-    setTimeout(() => els.introSkyline.classList.add("show"), 2300);
-    setTimeout(() => {
-      sfx.alarm();
-      els.introLineAlert.classList.add("show");
-    }, 3100);
-    setTimeout(() => els.introLineRole.classList.add("show"), 3800);
-    setTimeout(() => els.btnStartStory.classList.add("show"), 4400);
-  }
+  function switchScene(sceneName) {
+    gameState.scene = sceneName;
 
-  function startExplorePhase() {
-    initAudio();
-    sfx.interact();
-    els.introOverlay.classList.remove("active");
-    state.phase = "EXPLORE_1";
-    updateObjective("Head northwest to the Metro entrance and speak with Arun.");
-    els.hospBeacon.classList.add("beacon-alert");
+    els.sceneIntro.classList.remove("active");
+    els.sceneCity.classList.remove("active");
+    els.sceneEnding.classList.remove("active");
+
+    if (sceneName === "INTRO") {
+      els.sceneIntro.classList.add("active");
+    } else if (sceneName === "ENDING") {
+      els.sceneEnding.classList.add("active");
+    } else {
+      els.sceneCity.classList.add("active");
+    }
   }
 
   // ==========================================================================
   // 5. PLAYER MOVEMENT & GAME LOOP
   // ==========================================================================
-  let lastStepSoundTime = 0;
+  let lastFootstep = 0;
 
-  function updatePlayerPosition() {
-    if (state.phase === "DIALOGUE" || state.phase === "DECISION" || state.phase === "REVEAL") {
+  function updatePlayerMovement() {
+    if (
+      gameState.scene === "INTRO" ||
+      gameState.scene === "DIALOGUE" ||
+      gameState.scene === "DEVICE" ||
+      gameState.scene === "ALLOCATION" ||
+      gameState.scene === "ENDING"
+    ) {
       return;
     }
 
     let dx = 0;
     let dy = 0;
 
-    if (state.keys.up) dy -= 1;
-    if (state.keys.down) dy += 1;
-    if (state.keys.left) dx -= 1;
-    if (state.keys.right) dx += 1;
+    if (gameState.keys.up) dy -= 1;
+    if (gameState.keys.down) dy += 1;
+    if (gameState.keys.left) dx -= 1;
+    if (gameState.keys.right) dx += 1;
 
     if (dx !== 0 && dy !== 0) {
       dx *= 0.7071;
@@ -245,668 +269,686 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (dx !== 0 || dy !== 0) {
-      state.player.x += dx * state.player.speed;
-      state.player.y += dy * state.player.speed;
+      gameState.player.x += dx * gameState.player.speed;
+      gameState.player.y += dy * gameState.player.speed;
 
-      // Keep inside world bounds
-      state.player.x = Math.max(state.worldBounds.minX, Math.min(state.worldBounds.maxX, state.player.x));
-      state.player.y = Math.max(state.worldBounds.minY, Math.min(state.worldBounds.maxY, state.player.y));
+      // Keep within walkable road bounds
+      gameState.player.x = Math.max(gameState.bounds.minX, Math.min(gameState.bounds.maxX, gameState.player.x));
+      gameState.player.y = Math.max(gameState.bounds.minY, Math.min(gameState.bounds.maxY, gameState.player.y));
 
-      // Visual DOM update
-      els.player.style.left = `${state.player.x}px`;
-      els.player.style.top = `${state.player.y}px`;
+      els.playerActor.style.left = `${gameState.player.x}px`;
+      els.playerActor.style.top = `${gameState.player.y}px`;
 
-      // Subtle step audio
       const now = performance.now();
-      if (now - lastStepSoundTime > 260) {
+      if (now - lastFootstep > 280) {
         sfx.step();
-        lastStepSoundTime = now;
+        lastFootstep = now;
       }
     }
 
-    checkProximityInteractions();
+    checkInteractiveProximity();
   }
 
   function gameLoop() {
-    updatePlayerPosition();
+    updatePlayerMovement();
     requestAnimationFrame(gameLoop);
   }
 
   // ==========================================================================
-  // 6. PROXIMITY DETECTION & INTERACTION BUBBLE
+  // 6. PROXIMITY DETECTION & CONTEXT BUBBLE
   // ==========================================================================
-  function checkProximityInteractions() {
-    const px = state.player.x;
-    const py = state.player.y;
+  const interactables = [
+    { id: "teaOwner", x: 330, y: 215, label: "TALK", radius: 75 },
+    { id: "student", x: 170, y: 225, label: "TALK", radius: 75 },
+    { id: "doctor", x: 770, y: 225, label: "TALK", radius: 80 },
+    { id: "engineer", x: 550, y: 410, label: "TALK", radius: 80 },
+    { id: "device", x: 460, y: 310, label: "INVESTIGATE", radius: 65 }
+  ];
 
-    // Distances
-    const distArun = Math.hypot(px - 240, py - 250);
-    const distKavitha = Math.hypot(px - 480, py - 430);
+  function checkInteractiveProximity() {
+    const px = gameState.player.x;
+    const py = gameState.player.y;
 
-    const threshold = 75;
+    let nearest = null;
+    let minD = Infinity;
 
-    // Arun at Metro
-    if (distArun < threshold && state.storyStep === 1) {
-      els.bubbleArun.classList.add("visible");
-      state.activeNpc = "arun";
-    } else {
-      els.bubbleArun.classList.remove("visible");
-      if (state.activeNpc === "arun") state.activeNpc = null;
+    for (const item of interactables) {
+      if (item.id === "device" && !gameState.blackoutTriggered) continue;
+
+      const d = Math.hypot(px - item.x, py - item.y);
+      if (d < item.radius && d < minD) {
+        minD = d;
+        nearest = item;
+      }
     }
 
-    // Kavitha at Substation
-    if (distKavitha < threshold && (state.storyStep === 2 || state.storyStep === 3)) {
-      els.bubbleKavitha.classList.add("visible");
-      state.activeNpc = "kavitha";
+    if (nearest) {
+      gameState.activeInteractable = nearest.id;
+      els.contextLabel.textContent = nearest.label;
+      els.contextBubble.style.left = `${nearest.x}px`;
+      els.contextBubble.style.top = `${nearest.y - 10}px`;
+      els.contextBubble.classList.remove("hidden");
     } else {
-      els.bubbleKavitha.classList.remove("visible");
-      if (state.activeNpc === "kavitha") state.activeNpc = null;
+      gameState.activeInteractable = null;
+      els.contextBubble.classList.add("hidden");
     }
   }
 
-  function triggerInteraction() {
-    if (state.phase === "DIALOGUE") {
+  function handleInteraction() {
+    if (gameState.scene === "DIALOGUE") {
       advanceDialogue();
       return;
     }
 
-    if (!state.activeNpc) return;
+    if (!gameState.activeInteractable) return;
 
     sfx.interact();
+    const id = gameState.activeInteractable;
 
-    if (state.activeNpc === "arun" && state.storyStep === 1) {
-      startDialogue(
-        "A",
-        "ARUN — METRO OPERATOR",
-        "CHENNAI CENTRAL METRO",
-        [
-          "The metro line just lost traction power.",
-          "Over 2,400 passengers are trapped in the underground tunnels right now.",
-          "The ventilation fans are down. Oxygen is going to drop fast.",
-          "Wait... the regional hospital's ICU is pleading for emergency feed on the same wire.",
-          "We only have reserve capacity for ONE sector. Coordinator, who gets the power?"
-        ],
-        () => {
-          showDecision1();
-        }
-      );
-    } else if (state.activeNpc === "kavitha" && state.storyStep === 2) {
-      startDialogue(
-        "K",
-        "KAVITHA — CHIEF POWER ENGINEER",
-        "SUBSTATION 04 // TNEB",
-        [
-          "Coordinator, you saw what happened at the metro and hospital.",
-          "The electrical grid isn't failing by accident. It's an allocation loop.",
-          "Every time you divert power to save one sector, another sector's safety buffer vanishes.",
-          "We found one strategic emergency diesel generator staged in Reserve.",
-          "Do we ignite it now to relieve the current strain, or preserve it for a larger catastrophe?"
-        ],
-        () => {
-          showDecision2();
-        }
-      );
-    } else if (state.activeNpc === "kavitha" && state.storyStep === 3) {
-      startDialogue(
-        "K",
-        "KAVITHA — CHIEF POWER ENGINEER",
-        "SUBSTATION 04 // TNEB",
-        [
-          "ALERT: Total systemic resonance cascade imminent across metropolitan Chennai!",
-          "If the remaining grid drops, the Hospital, Metro, and Residential networks collapse together.",
-          "This is your LAST decision, Coordinator.",
-          "Do you chase the single loudest emergency right now — or force a balanced ration across the whole city?"
-        ],
-        () => {
-          showDecision3();
-        }
-      );
+    // SCENE 1: BEFORE BLACKOUT
+    if (!gameState.blackoutTriggered) {
+      if (id === "teaOwner") {
+        gameState.visited.teaShop = true;
+        gameState.dialogueCount++;
+        startDialogue("☕", "MUTHU", "TEA SHOP OWNER", [
+          "Power cut again?",
+          "Third time tonight.",
+          "City says emergency power will only last until midnight."
+        ], () => checkTriggerBlackout());
+      } else if (id === "student") {
+        gameState.visited.student = true;
+        gameState.dialogueCount++;
+        startDialogue("🎒", "KARTHIK", "COLLEGE STUDENT", [
+          "Anna! The metro stopped twice on the bridge earlier.",
+          "Thousands of people are stuck waiting at Central station."
+        ], () => checkTriggerBlackout());
+      } else if (id === "doctor") {
+        gameState.visited.hospital = true;
+        gameState.dialogueCount++;
+        startDialogue("🩺", "DR. PRIYA", "ICU PHYSICIAN", [
+          "Emergency power is running low.",
+          "Our surgical suites are drawing maximum juice from local batteries."
+        ], () => checkTriggerBlackout());
+      } else if (id === "engineer") {
+        gameState.visited.powerStation = true;
+        startDialogue("⚡", "KAVITHA", "GRID CHIEF", [
+          "Load frequency is fluctuating dangerously across the corridor.",
+          "If one more substation trips, we lose automated balancing."
+        ], () => checkTriggerBlackout());
+      }
+      return;
+    }
+
+    // SCENE 2: STRANGE FALLEN DEVICE INTERACTION
+    if (id === "device") {
+      if (!gameState.firstChoice) {
+        // Open Device Minigame
+        openDeviceModal();
+      } else {
+        // Check if explored enough to open final allocation
+        openFinalAllocationModal();
+      }
+      return;
+    }
+
+    // SCENE 3 & 4: EXPLORATION & DISCOVERING THE TRUTH (WORLD MEMORY)
+    if (id === "doctor") {
+      gameState.visited.hospital = true;
+      if (gameState.firstChoice === "HOSPITAL") {
+        startDialogue("🩺", "DR. PRIYA", "ICU PHYSICIAN", [
+          "Thank god... the surgical monitors stayed online.",
+          "Listen to me carefully: We don't need the whole grid.",
+          "We only need enough power for critical care—around 30 to 35 units is sufficient!"
+        ], () => checkExplorationProgress());
+      } else {
+        startDialogue("🩺", "DR. PRIYA", "ICU PHYSICIAN", [
+          "We're on battery reserves! 14 minutes left!",
+          "If you ever re-route the feeder: We don't need the whole grid.",
+          "We only need enough power for critical care—around 30 to 35 units!"
+        ], () => checkExplorationProgress());
+      }
+    } else if (id === "student") {
+      gameState.visited.metro = true;
+      if (gameState.firstChoice === "METRO") {
+        startDialogue("🎒", "KARTHIK", "COLLEGE STUDENT", [
+          "Anna! The trains are moving! We can get home!",
+          "The operator announced over the intercom:",
+          "They can run reduced service with just 30 units of power to keep air flowing!"
+        ], () => checkExplorationProgress());
+      } else {
+        startDialogue("🎒", "KARTHIK", "COLLEGE STUDENT", [
+          "The trains are still dead... we're stuck here in the tunnel fumes.",
+          "The transit technician said we don't need full speed—",
+          "The metro can run safe reduced service with just 30 units!"
+        ], () => checkExplorationProgress());
+      }
+    } else if (id === "engineer") {
+      gameState.visited.powerStation = true;
+      startDialogue("⚡", "KAVITHA", "GRID CHIEF", [
+        "Coordinator, look at the telemetry telemetry board.",
+        "The grid isn't failing on its own.",
+        "The problem is the allocation.",
+        "Every time you redirect power... another sector loses its reserve.",
+        "The central grid requires at least 35 units of reserve buffer, or the entire city drops together!"
+      ], () => checkExplorationProgress());
+    } else if (id === "teaOwner") {
+      gameState.visited.teaShop = true;
+      if (gameState.firstChoice === "HOSPITAL") {
+        startDialogue("☕", "MUTHU", "TEA SHOP OWNER", [
+          "You helped the hospital...",
+          "But the metro... hundreds of people are locked outside the gate.",
+          "Every action takes something away, doesn't it?"
+        ]);
+      } else {
+        startDialogue("☕", "MUTHU", "TEA SHOP OWNER", [
+          "The commuters made it through...",
+          "But look at the hospital across the street—emergency beacons are flashing red.",
+          "One problem fixed, another problem born."
+        ]);
+      }
     }
   }
 
   // ==========================================================================
-  // 7. DIALOGUE SYSTEM (Typewriter & Multi-Line)
+  // 7. DIALOGUE SYSTEM (Typewriter & Fast Skip)
   // ==========================================================================
-  function startDialogue(avatar, name, role, lines, onComplete) {
-    state.phase = "DIALOGUE";
-    state.dialogueQueue = lines;
-    state.currentDialogueIndex = 0;
-    state.onDialogueComplete = onComplete;
+  function startDialogue(avatar, name, title, lines, onEnd = null) {
+    gameState.scene = "DIALOGUE";
+    gameState.dialogueQueue = lines;
+    gameState.dialogueIndex = 0;
+    gameState.onDialogueEnd = onEnd;
 
     els.dialogueAvatar.textContent = avatar;
     els.dialogueName.textContent = name;
-    els.dialogueRole.textContent = role;
+    els.dialogueTitle.textContent = title;
 
-    els.dialogueContainer.classList.remove("hidden");
-    renderCurrentDialogueLine();
+    els.dialogueTray.classList.remove("hidden");
+    typeCurrentLine();
   }
 
-  function renderCurrentDialogueLine() {
-    if (state.typewriterTimer) clearInterval(state.typewriterTimer);
+  function typeCurrentLine() {
+    if (gameState.typewriterTimer) clearInterval(gameState.typewriterTimer);
 
-    const fullText = state.dialogueQueue[state.currentDialogueIndex];
-    els.dialogueText.textContent = "";
-    state.isTyping = true;
+    const text = gameState.dialogueQueue[gameState.dialogueIndex];
+    els.dialogueContent.textContent = "";
+    gameState.isTyping = true;
 
-    let charIdx = 0;
-    state.typewriterTimer = setInterval(() => {
-      if (charIdx < fullText.length) {
-        els.dialogueText.textContent += fullText[charIdx];
-        if (charIdx % 3 === 0) sfx.blip();
-        charIdx++;
+    let i = 0;
+    gameState.typewriterTimer = setInterval(() => {
+      if (i < text.length) {
+        els.dialogueContent.textContent += text[i];
+        if (i % 3 === 0) sfx.blip();
+        i++;
       } else {
-        clearInterval(state.typewriterTimer);
-        state.isTyping = false;
+        clearInterval(gameState.typewriterTimer);
+        gameState.isTyping = false;
       }
-    }, 18);
+    }, 16);
   }
 
   function advanceDialogue() {
-    if (state.isTyping) {
-      // Instant skip typewriter
-      clearInterval(state.typewriterTimer);
-      els.dialogueText.textContent = state.dialogueQueue[state.currentDialogueIndex];
-      state.isTyping = false;
+    if (gameState.isTyping) {
+      // Instant skip
+      clearInterval(gameState.typewriterTimer);
+      els.dialogueContent.textContent = gameState.dialogueQueue[gameState.dialogueIndex];
+      gameState.isTyping = false;
       return;
     }
 
     sfx.blip();
-    state.currentDialogueIndex++;
-    if (state.currentDialogueIndex < state.dialogueQueue.length) {
-      renderCurrentDialogueLine();
+    gameState.dialogueIndex++;
+
+    if (gameState.dialogueIndex < gameState.dialogueQueue.length) {
+      typeCurrentLine();
     } else {
-      // Finished all lines
-      els.dialogueContainer.classList.add("hidden");
-      if (state.onDialogueComplete) {
-        const callback = state.onDialogueComplete;
-        state.onDialogueComplete = null;
-        callback();
-      } else {
-        state.phase = "EXPLORE_1";
+      // Finish dialogue
+      els.dialogueTray.classList.add("hidden");
+      gameState.scene = "CITY";
+      if (gameState.onDialogueEnd) {
+        const cb = gameState.onDialogueEnd;
+        gameState.onDialogueEnd = null;
+        cb();
       }
     }
   }
 
   // ==========================================================================
-  // 8. DECISION 1: HOSPITAL VS METRO
+  // 8. THE BLACKOUT EVENT
   // ==========================================================================
-  function showDecision1() {
-    state.phase = "DECISION";
-    els.decisionTag.textContent = "CRITICAL ALLOCATION // 01";
-    els.decisionPromptTitle.textContent = "Only one sector can receive emergency power.";
-    els.decisionPromptSub.textContent = "Weigh human life against civic transit paralysis.";
+  function checkTriggerBlackout() {
+    if (gameState.blackoutTriggered) return;
 
-    // Option 1
-    els.c1Icon.textContent = "+";
-    els.c1Title.textContent = "HELP THE HOSPITAL";
-    els.c1Stakes.innerHTML = `
-      <span class="stake-line"><strong>43 patients</strong> on ICU life support</span>
-      <span class="stake-line">Emergency trauma surgical units energized</span>
-    `;
-    els.c1Downside.innerHTML = "<strong>Consequence:</strong> Metro network drops completely. 2,400 passengers trapped in tunnels.";
-    els.btnSelectChoice1.textContent = "ROUTE POWER TO HOSPITAL [1]";
-
-    // Option 2
-    els.c2Icon.textContent = "M";
-    els.c2Title.textContent = "SAVE THE METRO";
-    els.c2Stakes.innerHTML = `
-      <span class="stake-line"><strong>2,400 passengers</strong> in subterranean lines</span>
-      <span class="stake-line">Tunnel air circulation restored; avoids asphyxiation</span>
-    `;
-    els.c2Downside.innerHTML = "<strong>Consequence:</strong> Hospital forced onto auxiliary battery with 14 minutes left.";
-    els.btnSelectChoice2.textContent = "ROUTE POWER TO METRO [2]";
-
-    els.decisionModal.classList.remove("hidden");
-  }
-
-  function handleDecision1Choice(choice) {
-    sfx.choice();
-    els.decisionModal.classList.add("hidden");
-
-    if (choice === 1) {
-      // Hospital chosen
-      state.decisionsHistory.push({
-        step: 1,
-        title: "HELP THE HOSPITAL",
-        direct: "Hospital ICU and trauma wards fully powered.",
-        ripple: "Metro was shut down; passengers stranded in dark tunnels."
-      });
-
-      // World Updates
-      els.zoneHospital.classList.add("state-active");
-      els.hospSignStatus.textContent = "STABLE ✓";
-      els.hospSignStatus.style.backgroundColor = "var(--c-green-tint)";
-      els.hospSignStatus.style.color = "var(--c-green)";
-      els.hospBeacon.classList.remove("beacon-alert");
-
-      els.metroSignStatus.textContent = "BLACKOUT !";
-      els.stateHospital.textContent = "STABLE";
-      els.stateHospital.className = "chip-state stable";
-      els.stateMetro.textContent = "OFFLINE";
-      els.stateMetro.className = "chip-state critical";
-
-      els.cableGridHospital.setAttribute("class", "cable-path cable-active");
-      els.cableGridMetro.setAttribute("class", "cable-path cable-severed");
-
-      showConsequenceBanner(
-        "HOSPITAL ENERGIZED // METRO OFFLINE",
-        "You protected critical patients. But thousands remain stranded underground in the dark."
-      );
-    } else {
-      // Metro chosen
-      state.decisionsHistory.push({
-        step: 1,
-        title: "SAVE THE METRO",
-        direct: "Metro network kept running; passengers evacuated safely.",
-        ripple: "Hospital life support forced onto emergency 14-min battery."
-      });
-
-      // World Updates
-      els.zoneMetro.classList.add("state-active");
-      els.metroSignStatus.textContent = "STABLE ✓";
-      els.metroSignStatus.style.backgroundColor = "var(--c-green-tint)";
-      els.metroSignStatus.style.color = "var(--c-green)";
-
-      els.hospSignStatus.textContent = "BATTERY 14m";
-      els.hospSignStatus.style.backgroundColor = "var(--c-red-tint)";
-      els.hospSignStatus.style.color = "var(--c-red)";
-
-      els.stateMetro.textContent = "STABLE";
-      els.stateMetro.className = "chip-state stable";
-      els.stateHospital.textContent = "BATTERY";
-      els.stateHospital.className = "chip-state critical";
-
-      els.cableGridMetro.setAttribute("class", "cable-path cable-active");
-      els.cableGridHospital.setAttribute("class", "cable-path cable-severed");
-
-      showConsequenceBanner(
-        "METRO POWERED // HOSPITAL AT RISK",
-        "You prevented a panic disaster in the tunnels. But the hospital is now on borrowed time."
-      );
-    }
-
-    // Advance to Step 2
-    state.storyStep = 2;
-    state.phase = "EXPLORE_2";
-    updateObjective("The crisis is cascading. Walk south to Substation 04 and inspect the generator.");
-  }
-
-  // ==========================================================================
-  // 9. DECISION 2: USE GENERATOR VS SAVE RESERVE
-  // ==========================================================================
-  function showDecision2() {
-    state.phase = "DECISION";
-    els.decisionTag.textContent = "TACTICAL BUFFER // 02";
-    els.decisionPromptTitle.textContent = "The first choice triggered a second crisis.";
-    els.decisionPromptSub.textContent = "Only one emergency generator remains in reserve.";
-
-    // Option 1
-    els.c1Icon.textContent = "⚡";
-    els.c1Title.textContent = "USE GENERATOR NOW";
-    els.c1Stakes.innerHTML = `
-      <span class="stake-line">Instantly fixes the current unpowered sector</span>
-      <span class="stake-line">Immediate relief for civic complaints</span>
-    `;
-    els.c1Downside.innerHTML = "<strong>Consequence:</strong> Reserve drops to 0%. Any future shock causes total city collapse.";
-    els.btnSelectChoice1.textContent = "DEPLOY GENERATOR NOW [1]";
-
-    // Option 2
-    els.c2Icon.textContent = "🛡";
-    els.c2Title.textContent = "SAVE THE RESERVE";
-    els.c2Stakes.innerHTML = `
-      <span class="stake-line">Preserves critical buffer for the greater system</span>
-      <span class="stake-line">Grid remains resilient against incoming surge</span>
-    `;
-    els.c2Downside.innerHTML = "<strong>Consequence:</strong> Managed brownout continues; temporary public friction.";
-    els.btnSelectChoice2.textContent = "HOLD IN RESERVE [2]";
-
-    els.decisionModal.classList.remove("hidden");
-  }
-
-  function handleDecision2Choice(choice) {
-    sfx.choice();
-    els.decisionModal.classList.add("hidden");
-
-    if (choice === 1) {
-      // Used generator
-      state.decisionsHistory.push({
-        step: 2,
-        title: "USE GENERATOR NOW",
-        direct: "Current sector received temporary power injection.",
-        ripple: "Strategic reserve completely depleted to 0%. Buffer lost."
-      });
-
-      els.stateGrid.textContent = "0% ZERO";
-      els.stateGrid.className = "chip-state critical";
-      els.reserveMeter.textContent = "DEPLETED (0%)";
-      els.reserveMeter.style.color = "var(--c-red)";
-
-      showConsequenceBanner(
-        "BUFFER EXHAUSTED",
-        "Short-term relief achieved. But Chennai now has ZERO margin for error."
-      );
-    } else {
-      // Saved reserve
-      state.decisionsHistory.push({
-        step: 2,
-        title: "SAVE THE RESERVE",
-        direct: "Strategic reserve preserved for catastrophic surge.",
-        ripple: "Managed brownouts endured; systemic integrity survived."
-      });
-
-      els.stateGrid.textContent = "45% READY";
-      els.stateGrid.className = "chip-state stable";
-      els.reserveMeter.textContent = "PRIMED (45%)";
-      els.reserveMeter.style.color = "var(--c-green)";
-
-      showConsequenceBanner(
-        "RESERVE HELD SECURE",
-        "Managed discomfort endured. The central strategic buffer remains intact."
-      );
-    }
-
-    // Advance to Step 3
-    state.storyStep = 3;
-    state.phase = "EXPLORE_3";
-    updateObjective("EMERGENCY CASCADE! Talk to Kavitha immediately for the final decision.");
-  }
-
-  // ==========================================================================
-  // 10. DECISION 3: ACT IMMEDIATELY VS BALANCE SYSTEM
-  // ==========================================================================
-  function showDecision3() {
-    state.phase = "DECISION";
-    els.decisionTag.textContent = "FINAL CALL // 03";
-    els.decisionPromptTitle.textContent = "A city-wide failure is now imminent.";
-    els.decisionPromptSub.textContent = "Do you solve the visible problem — or balance the whole system?";
-
-    // Option 1
-    els.c1Icon.textContent = "⚡";
-    els.c1Title.textContent = "ACT IMMEDIATELY";
-    els.c1Stakes.innerHTML = `
-      <span class="stake-line">Divert remaining energy to the single loudest crisis</span>
-      <span class="stake-line">React directly to visible pressure</span>
-    `;
-    els.c1Downside.innerHTML = "<strong>Fatal Flaw:</strong> Ignored secondary consequences; triggers cascading grid destruction.";
-    els.btnSelectChoice1.textContent = "ACT IMMEDIATELY [1]";
-
-    // Option 2
-    els.c2Icon.textContent = "⚖";
-    els.c2Title.textContent = "BALANCE THE SYSTEM";
-    els.c2Stakes.innerHTML = `
-      <span class="stake-line">Evenly distribute rationed load across all three sectors</span>
-      <span class="stake-line">Accept managed smaller losses to protect total city integrity</span>
-    `;
-    els.c2Downside.innerHTML = "<strong>The Kural Way:</strong> Foresight and equilibrium save the entire metropolitan grid.";
-    els.btnSelectChoice2.textContent = "BALANCE THE SYSTEM [2]";
-
-    els.decisionModal.classList.remove("hidden");
-  }
-
-  function handleDecision3Choice(choice) {
-    sfx.choice();
-    els.decisionModal.classList.add("hidden");
-
-    if (choice === 1) {
-      // Acted immediately
-      state.decisionsHistory.push({
-        step: 3,
-        title: "ACT IMMEDIATELY",
-        direct: "Single problem prioritized without systemic forethought.",
-        ripple: "Cascading overload snapped remaining substations. Grid collapsed."
-      });
-      triggerClimax(false);
-    } else {
-      // Balanced the system
-      state.decisionsHistory.push({
-        step: 3,
-        title: "BALANCE THE SYSTEM",
-        direct: "Power rationed across Hospital, Metro, and Residential networks.",
-        ripple: "Equilibrium restored. Chennai survived the cascading blackout."
-      });
-      triggerClimax(true);
+    if (gameState.dialogueCount >= 2) {
+      triggerBlackout();
     }
   }
 
-  // ==========================================================================
-  // 11. WORLD CONSEQUENCE BANNER & NOTIFICATION
-  // ==========================================================================
-  function showConsequenceBanner(title, body) {
-    els.bannerTitle.textContent = title;
-    els.bannerBody.textContent = body;
-    els.consequenceBanner.classList.add("visible");
+  function triggerBlackout() {
+    gameState.blackoutTriggered = true;
+    sfx.blackout();
+
+    // Flickering street effect
+    [els.pool1, els.pool2, els.pool3, els.pool4].forEach((pool) => pool.classList.add("darkened"));
+
+    // Metro stops
+    els.metroStatusPill.textContent = "HALTED !";
+    els.metroStatusPill.style.backgroundColor = "var(--c-red-tint)";
+    els.metroStatusPill.style.color = "var(--c-red)";
+    els.metroGateLight.style.backgroundColor = "var(--c-red)";
+
+    // Hospital alarms
+    els.hospStatusPill.textContent = "BATTERY 14m";
+    els.hospStatusPill.style.backgroundColor = "var(--c-red-tint)";
+    els.hospStatusPill.style.color = "var(--c-red)";
+    els.hospCross.classList.add("beacon-flashing");
+
+    // Cables turn strained
+    els.cableSubToMetro.setAttribute("class", "cable-line cable-dead");
+    els.cableSubToHosp.setAttribute("class", "cable-line cable-dead");
+
+    // Reveal the fallen mysterious device
+    els.fallenDevice.classList.remove("hidden");
+
+    showWorldBanner("⚠ SUDDEN POWER CASCADE", "Central feeder tripped! A glowing node crashed onto the road.");
+    updateObjective("A strange device crashed in the middle of the street. Investigate it.");
+  }
+
+  function showWorldBanner(title, text) {
+    els.bannerIcon.textContent = "⚡";
+    els.bannerText.innerHTML = `<strong>${title}:</strong> ${text}`;
+    els.worldBanner.classList.remove("hidden");
 
     setTimeout(() => {
-      els.consequenceBanner.classList.remove("visible");
-    }, 4000);
+      els.worldBanner.classList.add("hidden");
+    }, 4500);
   }
 
   function updateObjective(text) {
-    els.hudObjective.textContent = text;
+    els.objectiveText.textContent = text;
   }
 
   // ==========================================================================
-  // 12. CLIMAX & THIRUKKURAL 461 REVEAL SCREEN
+  // 9. SCENE 2: STRANGE DEVICE MINIGAME
   // ==========================================================================
-  function triggerClimax(isSuccess) {
-    state.phase = "CLIMAX";
+  function openDeviceModal() {
+    gameState.scene = "DEVICE";
+    sfx.interact();
+    els.modalDevice.classList.remove("hidden");
+  }
 
-    if (isSuccess) {
-      sfx.triumph();
-      // Animate world recovery
-      els.cableGridMetro.setAttribute("class", "cable-path cable-active");
-      els.cableGridHospital.setAttribute("class", "cable-path cable-active");
-      els.cableMetroHospital.setAttribute("class", "cable-path cable-active");
+  function selectFirstChoice(choice) {
+    sfx.choice();
+    gameState.firstChoice = choice;
+    els.modalDevice.classList.add("hidden");
+    gameState.scene = "CITY";
 
-      els.zoneHospital.classList.add("state-active");
-      els.zoneMetro.classList.add("state-active");
-      els.hospSignStatus.textContent = "SECURED ✓";
-      els.metroSignStatus.textContent = "ONLINE ✓";
-      els.gridSignStatus.textContent = "EQUILIBRIUM";
+    if (choice === "HOSPITAL") {
+      // Hospital gets power
+      els.hospStatusPill.textContent = "STABLE ✓";
+      els.hospStatusPill.style.backgroundColor = "var(--c-green-tint)";
+      els.hospStatusPill.style.color = "var(--c-green)";
+      els.hospCross.classList.remove("beacon-flashing");
+      [els.hw1, els.hw2, els.hw3].forEach((w) => w.classList.remove("dark"));
 
-      showConsequenceBanner(
-        "EQUILIBRIUM ESTABLISHED",
-        "Power flowing in harmony. All three sectors stabilize."
+      // Metro stays dark
+      els.metroStatusPill.textContent = "DARK / STRANDED";
+      els.cableSubToHosp.setAttribute("class", "cable-line cable-powered");
+      els.cableSubToMetro.setAttribute("class", "cable-line cable-dead");
+
+      showWorldBanner(
+        "HOSPITAL POWERED",
+        "Hospital emergency systems stay online. But the metro network begins losing power."
       );
     } else {
-      sfx.alarm();
-      // Animate world collapse
-      els.cableGridMetro.setAttribute("class", "cable-path cable-severed");
-      els.cableGridHospital.setAttribute("class", "cable-path cable-severed");
-      els.cableMetroHospital.setAttribute("class", "cable-path cable-severed");
+      // Metro gets power
+      els.metroStatusPill.textContent = "ACTIVE ✓";
+      els.metroStatusPill.style.backgroundColor = "var(--c-green-tint)";
+      els.metroStatusPill.style.color = "var(--c-green)";
+      els.metroGateLight.style.backgroundColor = "var(--c-cyan)";
 
-      els.zoneHospital.classList.remove("state-active");
-      els.zoneMetro.classList.remove("state-active");
-      els.hospSignStatus.textContent = "COLLAPSED !";
-      els.metroSignStatus.textContent = "STRANDED !";
-      els.gridSignStatus.textContent = "TOTAL BLACKOUT";
+      // Hospital critical
+      els.hospStatusPill.textContent = "BATTERY CRITICAL";
+      [els.hw1, els.hw2].forEach((w) => w.classList.add("dark"));
 
-      showConsequenceBanner(
-        "CASCADING FAILURE",
-        "The grid collapsed under unbalanced strain."
+      els.cableSubToMetro.setAttribute("class", "cable-line cable-powered");
+      els.cableSubToHosp.setAttribute("class", "cable-line cable-dead");
+
+      showWorldBanner(
+        "METRO POWERED",
+        "Commuters safely evacuated. But hospital trauma units switch to 14-minute emergency battery."
       );
     }
 
-    setTimeout(() => {
-      renderRevealScreen(isSuccess);
-    }, 2800);
-  }
-
-  function renderRevealScreen(isSuccess) {
-    state.phase = "REVEAL";
-    els.revealOverlay.classList.remove("hidden");
-
-    if (isSuccess) {
-      els.outcomeBanner.className = "outcome-story-banner";
-      els.verdictTitle.textContent = "THE CITY SURVIVED.";
-      els.verdictDesc.textContent =
-        "You didn't choose the fastest solution. You chose the solution whose consequences you understood.";
-    } else {
-      els.outcomeBanner.className = "outcome-story-banner failed";
-      els.verdictTitle.textContent = "THE CITY PAID THE PRICE.";
-      els.verdictDesc.textContent =
-        "Each decision solved an immediate problem, but their consequences accumulated into catastrophe.";
-    }
-
-    // Populate timeline audit
-    els.timelineSteps.innerHTML = "";
-    state.decisionsHistory.forEach((item) => {
-      const card = document.createElement("div");
-      card.className = "timeline-card";
-      card.innerHTML = `
-        <span class="t-step">CHOICE 0${item.step}</span>
-        <span class="t-choice">${item.title}</span>
-        <p class="t-desc"><strong>Action:</strong> ${item.direct}</p>
-        <p class="t-desc"><strong>Ripple:</strong> ${item.ripple}</p>
-      `;
-      els.timelineSteps.appendChild(card);
-    });
+    updateObjective("Find out why the city's reserve is failing. Visit the Hospital, Metro, and Power Station.");
   }
 
   // ==========================================================================
-  // 13. RESET & RESTART
+  // 10. SCENE 3 & 4: DISCOVERING THE TRUTH
+  // ==========================================================================
+  function checkExplorationProgress() {
+    const visitedCount =
+      (gameState.visited.hospital ? 1 : 0) +
+      (gameState.visited.metro ? 1 : 0) +
+      (gameState.visited.powerStation ? 1 : 0);
+
+    if (visitedCount >= 3) {
+      updateObjective("You have gathered all sector telemetry. Return to City Node 07 for the Final Decision!");
+      showWorldBanner("SYSTEM PATTERN DISCOVERED", "You now understand how every sector interconnects.");
+    } else {
+      updateObjective(`Investigate remaining sectors (${visitedCount}/3 discovered).`);
+    }
+  }
+
+  // ==========================================================================
+  // 11. SCENE 5: THE LAST DECISION — ENERGY ALLOCATION
+  // ==========================================================================
+  function openFinalAllocationModal() {
+    gameState.scene = "ALLOCATION";
+    sfx.interact();
+    syncAllocationUI();
+    els.modalAllocation.classList.remove("hidden");
+  }
+
+  function handleSliderChange(changedSector) {
+    let h = parseInt(els.sliderHosp.value, 10);
+    let g = parseInt(els.sliderGrid.value, 10);
+    let m = parseInt(els.sliderMetro.value, 10);
+
+    let total = h + g + m;
+
+    // Rebalance dynamically so total stays exactly 100
+    if (total !== 100) {
+      const diff = 100 - total;
+      if (changedSector === "hosp") {
+        g = Math.max(10, Math.min(70, g + Math.round(diff / 2)));
+        m = Math.max(10, Math.min(70, 100 - h - g));
+      } else if (changedSector === "grid") {
+        h = Math.max(10, Math.min(70, h + Math.round(diff / 2)));
+        m = Math.max(10, Math.min(70, 100 - h - g));
+      } else {
+        h = Math.max(10, Math.min(70, h + Math.round(diff / 2)));
+        g = Math.max(10, Math.min(70, 100 - h - m));
+      }
+    }
+
+    els.sliderHosp.value = h;
+    els.sliderGrid.value = g;
+    els.sliderMetro.value = m;
+
+    gameState.finalAllocation.hospital = h;
+    gameState.finalAllocation.grid = g;
+    gameState.finalAllocation.metro = m;
+
+    syncAllocationUI();
+  }
+
+  function syncAllocationUI() {
+    const h = gameState.finalAllocation.hospital;
+    const g = gameState.finalAllocation.grid;
+    const m = gameState.finalAllocation.metro;
+
+    els.valHospDisplay.textContent = `${h}%`;
+    els.valGridDisplay.textContent = `${g}%`;
+    els.valMetroDisplay.textContent = `${m}%`;
+
+    els.segHosp.style.width = `${h}%`;
+    els.segGrid.style.width = `${g}%`;
+    els.segMetro.style.width = `${m}%`;
+
+    els.allocTotalDisplay.textContent = `${h + g + m} / 100 UNITS`;
+
+    // Real-time environmental feedback notes
+    if (h < 25) {
+      els.noteHosp.innerHTML = "<strong style='color:var(--c-red)'>CRITICAL FAILURE:</strong> Ventilators trip. Patients perish.";
+    } else if (h <= 40) {
+      els.noteHosp.innerHTML = "<span style='color:var(--c-green)'>OPTIMAL:</span> ICU & surgical life-support sustained.";
+    } else {
+      els.noteHosp.innerHTML = "<span style='color:var(--c-yellow)'>EXCESS DRAW:</span> Wastes energy on non-vital air conditioning.";
+    }
+
+    if (g < 25) {
+      els.noteGrid.innerHTML = "<strong style='color:var(--c-red)'>NO BUFFER:</strong> Grid collapses instantly upon secondary shock.";
+    } else if (g <= 45) {
+      els.noteGrid.innerHTML = "<span style='color:var(--c-green)'>BALANCED:</span> Adequate buffer prevents cascading metropolitan trip.";
+    } else {
+      els.noteGrid.innerHTML = "<span style='color:var(--c-yellow)'>HOARDING:</span> Power sitting idle while civic sectors strain.";
+    }
+
+    if (m < 25) {
+      els.noteMetro.innerHTML = "<strong style='color:var(--c-red)'>HALTED:</strong> Thousands stranded in underground dark.";
+    } else if (m <= 35) {
+      els.noteMetro.innerHTML = "<span style='color:var(--c-green)'>REDUCED SERVICE:</span> Safe evacuation transit maintained.";
+    } else {
+      els.noteMetro.innerHTML = "<span style='color:var(--c-yellow)'>HIGH SPEED:</span> High traction current drains the central grid.";
+    }
+  }
+
+  function commitFinalAllocation() {
+    sfx.choice();
+    els.modalAllocation.classList.add("hidden");
+
+    const h = gameState.finalAllocation.hospital;
+    const g = gameState.finalAllocation.grid;
+    const m = gameState.finalAllocation.metro;
+
+    const visitedAll =
+      gameState.visited.hospital && gameState.visited.metro && gameState.visited.powerStation;
+
+    // EVALUATE ENDING:
+    // Ending 1: THE SAVIOR (One sector heavily over-allocated > 50% or another starved < 20%)
+    // Ending 2: THE SURVIVOR (Balanced numbers, but player did NOT explore the 3 locations)
+    // Ending 3: THE THINKER (Explored all locations AND balanced between: Hosp 25-40, Grid 25-45, Metro 25-35)
+    if (h > 50 || g > 50 || m > 50 || h < 20 || g < 20 || m < 20) {
+      gameState.ending = "SAVIOR";
+    } else if (!visitedAll) {
+      gameState.ending = "SURVIVOR";
+    } else {
+      gameState.ending = "THINKER";
+    }
+
+    triggerEndingSequence();
+  }
+
+  // ==========================================================================
+  // 12. ENDINGS & THIRUKKURAL 461 REVEAL
+  // ==========================================================================
+  function triggerEndingSequence() {
+    switchScene("ENDING");
+
+    if (gameState.ending === "THINKER") {
+      sfx.success();
+      els.verdictBanner.className = "verdict-banner";
+      els.verdictCategory.textContent = "ENDING: THE THINKER (OPTIMAL OUTCOME)";
+      els.verdictHeadline.textContent = "THE CITY SURVIVED.";
+      els.verdictNarr1.textContent = "You didn't choose what mattered most.";
+      els.verdictNarr2.textContent = "You understood what each choice would cost.";
+      els.verdictHighlight.textContent =
+        "THE CITY SURVIVED BECAUSE YOU THOUGHT BEYOND THE FIRST MOVE.";
+    } else if (gameState.ending === "SURVIVOR") {
+      sfx.interact();
+      els.verdictBanner.className = "verdict-banner survivor";
+      els.verdictCategory.textContent = "ENDING: THE SURVIVOR";
+      els.verdictHeadline.textContent = "THE CITY SURVIVED UNDER STRAIN.";
+      els.verdictNarr1.textContent = "Nothing collapsed.";
+      els.verdictNarr2.textContent = "But nothing was free.";
+      els.verdictHighlight.textContent =
+        "You balanced the meters by instinct, but missed key intelligence from the sectors.";
+    } else {
+      sfx.blackout();
+      els.verdictBanner.className = "verdict-banner savior";
+      els.verdictCategory.textContent = "ENDING: THE SAVIOR";
+      els.verdictHeadline.textContent = "ONE SYSTEM SURVIVED.";
+      els.verdictNarr1.textContent = "You saved one problem.";
+      els.verdictNarr2.textContent = "You created another.";
+      els.verdictHighlight.textContent =
+        "Over-prioritizing the visible emergency caused a catastrophic failure elsewhere.";
+    }
+
+    // Populate Journey Recap
+    els.recapGrid.innerHTML = `
+      <div class="recap-card">
+        <span class="r-step">STEP 1 // IMMEDIATE REACTION</span>
+        <span class="r-choice">Chose: ${gameState.firstChoice}</span>
+        <p class="r-desc">${
+          gameState.firstChoice === "HOSPITAL"
+            ? "Protected patients, but stranded thousands underground."
+            : "Evacuated commuters, but hospital ICUs were put on emergency countdown."
+        }</p>
+      </div>
+      <div class="recap-card">
+        <span class="r-step">STEP 2 // EXPLORATION & CLUES</span>
+        <span class="r-choice">Sectors Discovered: ${
+          (gameState.visited.hospital ? 1 : 0) +
+          (gameState.visited.metro ? 1 : 0) +
+          (gameState.visited.powerStation ? 1 : 0)
+        } / 3</span>
+        <p class="r-desc">Hospital (35%), Metro (30%), Grid Buffer (35%).</p>
+      </div>
+      <div class="recap-card">
+        <span class="r-step">STEP 3 // FINAL ALLOCATION</span>
+        <span class="r-choice">H: ${gameState.finalAllocation.hospital}% | G: ${gameState.finalAllocation.grid}% | M: ${gameState.finalAllocation.metro}%</span>
+        <p class="r-desc">Outcome: ${gameState.ending}</p>
+      </div>
+    `;
+
+    // Line-by-line Kural Reveal
+    setTimeout(() => els.kLine1.classList.add("revealed"), 400);
+    setTimeout(() => els.kLine2.classList.add("revealed"), 1100);
+    setTimeout(() => els.kLine3.classList.add("revealed"), 1800);
+    setTimeout(() => els.kLine4.classList.add("revealed"), 2500);
+  }
+
+  // ==========================================================================
+  // 13. RESET & REPLAY
   // ==========================================================================
   function resetGame() {
     sfx.interact();
 
-    state.phase = "INTRO";
-    state.player.x = 470;
-    state.player.y = 290;
-    state.storyStep = 1;
-    state.decisionsHistory = [];
-    state.activeNpc = null;
+    gameState.scene = "INTRO";
+    gameState.player.x = 460;
+    gameState.player.y = 270;
+    gameState.firstChoice = null;
+    gameState.blackoutTriggered = false;
+    gameState.dialogueCount = 0;
+    gameState.visited = { teaShop: false, student: false, hospital: false, powerStation: false };
+    gameState.finalAllocation = { hospital: 35, grid: 35, metro: 30 };
+    gameState.ending = null;
 
-    // Reset Player DOM
-    els.player.style.left = `${state.player.x}px`;
-    els.player.style.top = `${state.player.y}px`;
+    // Reset Elements
+    els.playerActor.style.left = `${gameState.player.x}px`;
+    els.playerActor.style.top = `${gameState.player.y}px`;
 
-    // Reset World Zones
-    els.zoneMetro.classList.remove("state-active");
-    els.zoneHospital.classList.remove("state-active");
-    els.hospBeacon.classList.remove("beacon-alert");
+    els.fallenDevice.classList.add("hidden");
+    els.worldBanner.classList.add("hidden");
+    els.dialogueTray.classList.add("hidden");
+    els.modalDevice.classList.add("hidden");
+    els.modalAllocation.classList.add("hidden");
 
-    els.metroSignStatus.textContent = "OFFLINE";
-    els.metroSignStatus.style.backgroundColor = "";
-    els.metroSignStatus.style.color = "";
+    // Reset Street Lights & Signals
+    [els.pool1, els.pool2, els.pool3, els.pool4].forEach((pool) => pool.classList.remove("darkened"));
+    els.metroStatusPill.textContent = "ONLINE";
+    els.metroStatusPill.style.backgroundColor = "";
+    els.metroStatusPill.style.color = "";
+    els.metroGateLight.style.backgroundColor = "var(--c-cyan)";
 
-    els.hospSignStatus.textContent = "ON BATTERY";
-    els.hospSignStatus.style.backgroundColor = "";
-    els.hospSignStatus.style.color = "";
+    els.hospStatusPill.textContent = "ONLINE";
+    els.hospStatusPill.style.backgroundColor = "";
+    els.hospStatusPill.style.color = "";
+    els.hospCross.classList.remove("beacon-flashing");
+    [els.hw1, els.hw2, els.hw3].forEach((w) => w.classList.remove("dark"));
 
-    els.gridSignStatus.textContent = "CRITICAL LOAD";
-    els.reserveMeter.textContent = "AUX-01 ONLINE";
-    els.reserveMeter.style.color = "";
+    els.cableSubToMetro.setAttribute("class", "cable-line cable-live");
+    els.cableSubToHosp.setAttribute("class", "cable-line cable-live");
 
-    els.stateHospital.textContent = "CRITICAL";
-    els.stateHospital.className = "chip-state critical";
-    els.stateMetro.textContent = "OFFLINE";
-    els.stateMetro.className = "chip-state critical";
-    els.stateGrid.textContent = "35%";
-    els.stateGrid.className = "chip-state warning";
+    [els.kLine1, els.kLine2, els.kLine3, els.kLine4].forEach((k) => k.classList.remove("revealed"));
 
-    els.cableGridMetro.setAttribute("class", "cable-path cable-strained");
-    els.cableGridHospital.setAttribute("class", "cable-path cable-strained");
-    els.cableMetroHospital.setAttribute("class", "cable-path cable-dormant");
-
-    els.bubbleArun.classList.remove("visible");
-    els.bubbleKavitha.classList.remove("visible");
-    els.consequenceBanner.classList.remove("visible");
-    els.dialogueContainer.classList.add("hidden");
-    els.decisionModal.classList.add("hidden");
-    els.revealOverlay.classList.add("hidden");
-
-    els.introOverlay.classList.add("active");
+    updateObjective("Explore the street. Talk to the locals.");
+    switchScene("INTRO");
   }
 
   // ==========================================================================
-  // 14. EVENT LISTENERS & CONTROLS
+  // 14. EVENT LISTENERS & KEYBOARD / TOUCH CONTROLS
   // ==========================================================================
-  // Audio Toggle
+  // Sound Toggle
   els.soundToggle.addEventListener("click", () => {
-    state.audioEnabled = !state.audioEnabled;
-    if (state.audioEnabled) {
+    gameState.audioEnabled = !gameState.audioEnabled;
+    if (gameState.audioEnabled) {
       els.soundIcon.textContent = "🔊";
-      els.soundText.textContent = "AUDIO";
+      els.soundText.textContent = "AUDIO ON";
       els.soundToggle.classList.remove("muted");
       initAudio();
       sfx.blip();
     } else {
       els.soundIcon.textContent = "🔇";
-      els.soundText.textContent = "MUTED";
+      els.soundText.textContent = "AUDIO OFF";
       els.soundToggle.classList.add("muted");
     }
   });
 
-  // Intro Start Button
-  els.btnStartStory.addEventListener("click", startExplorePhase);
-
-  // Dialogue Advance
-  els.btnAdvanceDialogue.addEventListener("click", advanceDialogue);
-  els.dialogueContainer.addEventListener("click", advanceDialogue);
-
-  // Decision Choice Buttons
-  els.btnSelectChoice1.addEventListener("click", () => {
-    if (state.storyStep === 1) handleDecision1Choice(1);
-    else if (state.storyStep === 2) handleDecision2Choice(1);
-    else if (state.storyStep === 3) handleDecision3Choice(1);
+  // Intro Button
+  els.btnStartGame.addEventListener("click", () => {
+    initAudio();
+    sfx.interact();
+    switchScene("CITY");
   });
 
-  els.btnSelectChoice2.addEventListener("click", () => {
-    if (state.storyStep === 1) handleDecision1Choice(2);
-    else if (state.storyStep === 2) handleDecision2Choice(2);
-    else if (state.storyStep === 3) handleDecision3Choice(2);
-  });
+  // Dialogue Controls
+  els.btnDialogueNext.addEventListener("click", advanceDialogue);
+  els.dialogueTray.addEventListener("click", advanceDialogue);
 
-  // Play Again Button
-  els.btnPlayAgain.addEventListener("click", resetGame);
+  // Device Modal Selection
+  els.btnChooseHosp.addEventListener("click", () => selectFirstChoice("HOSPITAL"));
+  els.btnChooseMetro.addEventListener("click", () => selectFirstChoice("METRO"));
 
-  // Keyboard Navigation
+  // Sliders
+  els.sliderHosp.addEventListener("input", () => handleSliderChange("hosp"));
+  els.sliderGrid.addEventListener("input", () => handleSliderChange("grid"));
+  els.sliderMetro.addEventListener("input", () => handleSliderChange("metro"));
+
+  // Final Commit
+  els.btnCommitAllocation.addEventListener("click", commitFinalAllocation);
+
+  // Replay
+  els.btnReplay.addEventListener("click", resetGame);
+
+  // Keyboard Movement & Actions
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
 
-    // Movement keys
-    if (k === "w" || k === "arrowup") state.keys.up = true;
-    if (k === "s" || k === "arrowdown") state.keys.down = true;
-    if (k === "a" || k === "arrowleft") state.keys.left = true;
-    if (k === "d" || k === "arrowright") state.keys.right = true;
+    if (k === "w" || k === "arrowup") gameState.keys.up = true;
+    if (k === "s" || k === "arrowdown") gameState.keys.down = true;
+    if (k === "a" || k === "arrowleft") gameState.keys.left = true;
+    if (k === "d" || k === "arrowright") gameState.keys.right = true;
 
-    // Interact [E]
-    if (k === "e") triggerInteraction();
+    if (k === "e") handleInteraction();
 
-    // Advance dialogue [Space or Enter]
     if (e.key === " " || k === "enter") {
-      if (state.phase === "DIALOGUE") {
+      if (gameState.scene === "DIALOGUE") {
         e.preventDefault();
         advanceDialogue();
-      } else if (state.phase === "INTRO" && els.btnStartStory.classList.contains("show")) {
-        startExplorePhase();
+      } else if (gameState.scene === "INTRO") {
+        els.btnStartGame.click();
       }
-    }
-
-    // Choice shortcuts [1] and [2]
-    if (!els.decisionModal.classList.contains("hidden")) {
-      if (k === "1") els.btnSelectChoice1.click();
-      if (k === "2") els.btnSelectChoice2.click();
     }
   });
 
   window.addEventListener("keyup", (e) => {
     const k = e.key.toLowerCase();
-    if (k === "w" || k === "arrowup") state.keys.up = false;
-    if (k === "s" || k === "arrowdown") state.keys.down = false;
-    if (k === "a" || k === "arrowleft") state.keys.left = false;
-    if (k === "d" || k === "arrowright") state.keys.right = false;
+    if (k === "w" || k === "arrowup") gameState.keys.up = false;
+    if (k === "s" || k === "arrowdown") gameState.keys.down = false;
+    if (k === "a" || k === "arrowleft") gameState.keys.left = false;
+    if (k === "d" || k === "arrowright") gameState.keys.right = false;
   });
 
   // Mobile D-Pad Virtual Buttons
-  const setupDpadButton = (btn, dir) => {
+  const bindDpad = (btn, dir) => {
     const press = (e) => {
       e.preventDefault();
-      state.keys[dir] = true;
+      gameState.keys[dir] = true;
     };
     const release = (e) => {
       e.preventDefault();
-      state.keys[dir] = false;
+      gameState.keys[dir] = false;
     };
     btn.addEventListener("touchstart", press, { passive: false });
     btn.addEventListener("touchend", release, { passive: false });
@@ -915,18 +957,17 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("mouseleave", release);
   };
 
-  setupDpadButton(els.dpadUp, "up");
-  setupDpadButton(els.dpadDown, "down");
-  setupDpadButton(els.dpadLeft, "left");
-  setupDpadButton(els.dpadRight, "right");
+  bindDpad(els.dpadUp, "up");
+  bindDpad(els.dpadDown, "down");
+  bindDpad(els.dpadLeft, "left");
+  bindDpad(els.dpadRight, "right");
 
-  els.mobileInteractBtn.addEventListener("click", triggerInteraction);
+  els.mobileInteractBtn.addEventListener("click", handleInteraction);
   els.mobileInteractBtn.addEventListener("touchstart", (e) => {
     e.preventDefault();
-    triggerInteraction();
+    handleInteraction();
   }, { passive: false });
 
-  // Start Intro Sequence & Game Loop
-  runIntroSequence();
+  // Start Game Loop
   requestAnimationFrame(gameLoop);
 });
